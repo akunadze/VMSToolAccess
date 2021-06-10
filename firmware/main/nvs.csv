@@ -1,0 +1,5 @@
+key,type,encoding,value
+config,namespace,,
+wifiSid,data,string,<wifi SSID>
+wifiPass,data,string,<wifi pass>
+masterUrl,data,string,https://192.168.1.80:3080/
