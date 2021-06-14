@@ -2,13 +2,9 @@
   "name": "toolaccess_api",
   "version": "1.0.0",
   "description": "ToolAccess API server",
-  "main": "server.js",
+  "main": "src/server.js",
   "scripts": {
-    "build": "webpack --mode=production --node-env=production",
-    "build:dev": "webpack --mode=development",
-    "build:prod": "webpack --mode=production --node-env=production",
-    "watch": "webpack --watch",
-    "serve": "webpack serve"
+    "dev": "nodemon -e ts --exec \"npm run compile\""
   },
   "author": "Alex Kunadze",
   "license": "MIT",
@@ -42,9 +38,6 @@
     "node-polyfill-webpack-plugin": "^1.1.2",
     "style-loader": "^2.0.0",
     "ts-loader": "^9.2.2",
-    "typescript": "^4.3.2",
-    "webpack": "^5.38.1",
-    "webpack-cli": "^4.7.0",
-    "webpack-dev-server": "^3.11.2"
+    "typescript": "^4.3.2"
   }
 }
