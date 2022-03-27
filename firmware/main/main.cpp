@@ -98,19 +98,63 @@ extern "C" {
 // #define NUM_RECORDS 100
 // static heap_trace_record_t trace_record[NUM_RECORDS]; // This buffer must be in internal RAM
 
+#define LIGHSHOW_STEPS  128
+
+uint8_t morph(uint8_t start, uint8_t end, uint8_t step) {
+    uint8_t result = (uint8_t)((int)start + (((int)end - (int)start) * step / LIGHSHOW_STEPS));
+    //ESP_LOGI(TAG, "Step: %d, result: %d", step, result);
+    return result;
+}
+
+static bool bStopLightShow = false;
+void lightShowTask(void *pvParam) {
+    WS2812 *pLeds = (WS2812 *)pvParam;
+
+    uint8_t r1 = 255;
+    uint8_t g1 = 0;
+    uint8_t b1 = 128;
+    
+    uint8_t r2 = 0;
+    uint8_t g2 = 255;
+    uint8_t b2 = 128;
+    
+    uint8_t step = 0;
+    int8_t stepInc = 1;
+
+    while (true) {
+        if (bStopLightShow) {
+            vTaskDelete(NULL);
+        }
+    
+        pLeds->setPixel(0, morph(r1, r2, step), morph(g1, g2, step), morph(b1, b2, step));
+        pLeds->setPixel(1, morph(r2, r1, step), morph(g2, g1, step), morph(b2, b1, step));
+        pLeds->show();
+
+        if ((step == 0 && stepInc == -1) || (step == LIGHSHOW_STEPS && stepInc == 1)) {
+            stepInc = 0 - stepInc;
+        }
+
+        step += stepInc;
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+
 void app_main(void)
 {
 //    ESP_ERROR_CHECK( heap_trace_init_standalone(trace_record, NUM_RECORDS) );
 
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    // WS2812 leds((gpio_num_t)32, 2);
-
-    // leds.setPixel(0, 255, 0, 0);
-    // leds.setPixel(1, 0, 0, 255);
-    //     leds.show();
-
 	gpio_set_direction((gpio_num_t)16, GPIO_MODE_OUTPUT);
+
+    WS2812 leds((gpio_num_t)32, 2);
+
+    bool ledPhase = true;
+    leds.setPixel(0, ledPhase ? 255 : 0, ledPhase ? 0 : 255, 0);
+    leds.setPixel(1, ledPhase ? 0 : 255, ledPhase ? 255 : 0, 0);
+    leds.show();
 
     Config config;
     WiFi wifi(config);
@@ -118,6 +162,10 @@ void app_main(void)
     rfid.PCD_Init(21, 22);
 
     while (!wifi.isConnected()) {
+        ledPhase = !ledPhase;
+        leds.setPixel(0, ledPhase ? 255 : 0, ledPhase ? 0 : 255, 0);
+        leds.setPixel(1, ledPhase ? 0 : 255, ledPhase ? 255 : 0, 0);
+        leds.show();
         ESP_LOGI(TAG, "Waiting for WiFi connection...");
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -126,8 +174,13 @@ void app_main(void)
     api.startHelloTask();
 
     while (true) {
+        bStopLightShow = false;
+        xTaskCreate(&lightShowTask, "LightShowTask", 2048, &leds, 5, NULL);
+
         ESP_LOGI(TAG, "Waiting for a card...");
         if (detectCard()) {
+            bStopLightShow = true;
+
             rfid.PICC_HaltA();
 
             ESP_LOGI(TAG, "New card detected\n");
@@ -140,10 +193,18 @@ void app_main(void)
             bool bAuthorized = false;
 
             if (config.isUserPresent(currentCard)) {
+                leds.setPixel(0, 0, 255, 0);
+                leds.setPixel(1, 0, 255, 0);
+                leds.show();
+
                 ESP_LOGW(TAG, "User authorized");
                 bAuthorized = true;
                 api.addLog(currentCard, LogEntry::LogIn);
             } else {
+                leds.setPixel(0, 255, 0, 0);
+                leds.setPixel(1, 255, 0, 0);
+                leds.show();
+
                 ESP_LOGW(TAG, "User NOT authorized");
                 bAuthorized = false;
                 api.addLog(currentCard, LogEntry::Error);

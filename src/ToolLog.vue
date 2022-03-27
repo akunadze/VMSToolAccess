@@ -57,6 +57,9 @@ export default {
   },
   mounted() {
       this.$root.$on('view-tool-log', x => this.startDlg(x))
+  },
+  beforeDestroy() {
+    this.$root.$off('view-tool-log');
   }
 }
 </script>

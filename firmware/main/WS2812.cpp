@@ -118,7 +118,7 @@ WS2812::WS2812(gpio_num_t dinPin, uint16_t pixelCount, int channel) {
 
 	this->items      = new rmt_item32_t[pixelCount * 24 + 1];
 	this->pixels     = new pixel_t[pixelCount];
-	this->colorOrder = (char*) "GRB";
+	this->colorOrder = (char*) "RGB";
 	clear();
 
 	rmt_config_t config;

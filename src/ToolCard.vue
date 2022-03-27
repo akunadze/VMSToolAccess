@@ -34,27 +34,24 @@
             </span>
             <b-button @click="viewLog">Full Log</b-button>
           </div>
+          <div class="m-2 p-0 d-flex">
+            <span class="bg-light border rounded-left p-1 w-25">Utilization</span>
+            <span class="bg-white border p-1 flex-fill">
+              {{ tool.utilization }}%
+            </span>
+            <b-button @click="debugFunc">Full Log</b-button>
+          </div>
         </b-collapse>
     </b-card-body>
 
-    <AddEditTool />
-    <EditToolUsers />
-    <ToolLog />
     </b-card>
 </template>
 
 <script>
-import AddEditTool from './AddEditTool.vue'
-import EditToolUsers from './EditToolUsers.vue'
-import ToolLog from './ToolLog.vue'
-
 export default {
   name: 'ToolCard',
   props: ['tool'],
   components: {
-    AddEditTool,
-    EditToolUsers,
-    ToolLog,
   },
   data () {return {
     showIcons: false,
@@ -62,6 +59,8 @@ export default {
   }},
   methods: {
     editUsers() {
+      console.log("Calling editTool");
+      console.log(this.tool);
       this.$root.$emit('edit-tool-users', this.tool);
     },
     editTool() {
@@ -112,6 +111,13 @@ export default {
       } else {
         return "";
       }
+    },
+    debugFunc() {
+      fetch(`/api/hello`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mac: this.tool.mac, logs: []})
+      }).then(resp => resp.json().then(respJson => console.log(respJson)));
     }
   }
 }

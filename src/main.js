@@ -4,6 +4,7 @@ import App from './App.vue';
 import Login from './Login.vue';
 import Tools from './Tools.vue';
 import Users from './Users.vue';
+import Stats from './Stats.vue';
 import Settings from './Settings.vue';
 import { BootstrapVue, IconsPlugin } from 'bootstrap-vue';
 import vMultiselectListbox from "vue-multiselect-listbox";
@@ -20,11 +21,12 @@ Vue.use(VueRouter);
 let loggedIn = false;
 
 const router = new VueRouter({routes: [
-  {path: "/", redirect: "/login"},
+  {path: "/", redirect: "/tools"},
   {path: "/tools", name: "tools", component: Tools},
   {path: "/users", name: "users", component: Users},
   {path: "/login", name: "login", component: Login},
   {path: "/settings", name: "settings", component: Settings},
+  {path: "/stats", name: "stats", component: Stats},
 ]
 });
 
@@ -56,7 +58,7 @@ class Data {
   }
 
   getUsers() {
-    return this.users;
+    return this.users;//.filter(x => !x.group);
   }
   
   findUser(userId) {
@@ -179,20 +181,20 @@ let vueApp = new Vue({
       let respJson = await resp.json();
       return (resp.status === 200 && !respJson.error);
     },
-    async addUser(name, email, card) {
+    async addUser(name, email, card, doorCard, members) {
       let resp = await fetch(`/api/user/add`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name: name, email: email, card: card})
+        body: JSON.stringify({name: name, email: email, card: card, doorCard: doorCard, members: members})
       });
       let respJson = await resp.json();
       return (resp.status === 200 && !respJson.error);
     },
-    async editUser(userId, name, email, card) {
+    async editUser(userId, name, email, card, doorCard, members) {
       let resp = await fetch(`/api/user/edit`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id: userId, name: name, email: email, card: card})
+        body: JSON.stringify({id: userId, name: name, email: email, card: card, doorCard: doorCard, members: members})
       });
       let respJson = await resp.json();
       return (resp.status === 200 && !respJson.error);
@@ -213,7 +215,7 @@ let vueApp = new Vue({
         body: JSON.stringify({id: userId})
       });
       let respJson = await resp.json();
-      return (resp.status === 200 && !respJson.error);
+      return (resp.status === 200 && respJson.error === null);
     },
     refreshData() {
       refreshData();

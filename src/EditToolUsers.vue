@@ -4,7 +4,7 @@
         <div class="d-flex justify-content-center">
         <v-multiselect-listbox ref="listbox"
             :options="this.$root.$data.shared.users"
-            :reduce-display-property="(option) => option.fullName"
+            :reduce-display-property="(option) => option.group ? '{ ' + option.fullName + ' }' : option.fullName"
             :reduce-value-property="(option) => option.id"
             search-options-placeholder="All Users"
             selected-options-placeholder="Authorized Users"
@@ -48,6 +48,9 @@ export default {
             return;
         }
 
+        console.log("onEditToolUsers");
+        console.log(x);
+
         this.tool = x
         this.errorMsg = ""
         this.$bvModal.show('editToolUsersDlg')      
@@ -62,6 +65,8 @@ export default {
       console.log(x[0]);
     },
     onShow() {
+      console.log(this.tool);
+      console.log(this.tool.users);
       for (let user of this.$refs.listbox.options) {
         if (this.tool.users.find(x => x === user.id)) {
           this.$refs.listbox.selectedItems.push(user);
@@ -71,7 +76,14 @@ export default {
 
   },
   mounted() {
-      this.$root.$on('edit-tool-users', x => this.startDlg(x))
+      this.$root.$on('edit-tool-users', x => {
+        console.log("onEditToolUsers");
+        console.log(x);
+        this.startDlg(x)
+      })
+  },
+  beforeDestroy() {
+    this.$root.$off('edit-tool-users');
   }
 }
 </script>

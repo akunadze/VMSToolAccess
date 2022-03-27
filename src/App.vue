@@ -1,10 +1,13 @@
 <template>
   <div id="app" class="container-fluid d-flex flex-column h-100">
-    <div class="text-center align-baseline bg-primary text-white display-4 m-1 p-2"><img src="./assets/VMS_Logo.png" /><h1><b>Tool Access Portal {{this.$root.$data.msg}}</b></h1></div>
+    <div class="border bg-light mt-1 mb-1 p-3 d-flex flex-row align-items-center justify-content-center">
+      <img src="./assets/VMS_Logo.png" /><h1><b>Tool Access Portal</b></h1>
+    </div>
 
     <b-nav tabs v-if="isLoggedIn()">
       <b-nav-item to="/tools" :active="$route.name == 'tools'">Tools</b-nav-item>
       <b-nav-item to="/users" :active="$route.name == 'users'">Users</b-nav-item>
+      <b-nav-item to="/stats" :active="$route.name == 'stats'">Stats</b-nav-item>
       <b-nav-item to="/settings">Settings</b-nav-item>
       <a href="#" @click="onLogout" class="m-2 ml-auto align-baseline">Logout</a>
     </b-nav>
