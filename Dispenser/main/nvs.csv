@@ -1,0 +1,5 @@
+key,type,encoding,value
+config,namespace,,
+wifiSid,data,string,
+wifiPass,data,string,
+masterUrl,data,string,
