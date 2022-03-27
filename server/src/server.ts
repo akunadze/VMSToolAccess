@@ -6,6 +6,7 @@ import {Tool, User, Response} from "./data"
 import * as data from "./data";
 import path from "path";
 import https from "https";
+import http from "http";
 import fs from "fs";
 import bcrypt from "bcrypt";
 import * as config from "./config";
@@ -115,9 +116,18 @@ app.post('/api/hello', (req, res) => {
 
   const existingTool = tools.find(x => x.mac === req.body.mac);
   if (existingTool) {
-    response.userCards = existingTool.users.map(x => {
+    response.userCards = [];
+    existingTool.users.forEach(x => {
       const user = users.find(u => u.id == x);
-      return user ? user.card : "";
+      if (user) {
+        if (user.group) {
+          for (const member of user.members) {
+            response.userCards.push(member);
+          }
+        } else {
+          response.userCards.push(user.card);
+        }
+      }
     });
 
     class log_entry {
@@ -153,6 +163,17 @@ app.post('/api/hello', (req, res) => {
   res.json(response);
 });
 
+app.get('/api/tools/utilstats', (req, res) => {
+  if (!req.session.loggedIn) {
+    res.status(401).json(Response.mkErr("Not logged in"));
+    return;
+  }
+
+  console.log('api/tools/utilstats called.')
+  const result = data.getToolsUtilStats();
+
+  res.json(Response.mkData(result));
+});
 
 app.get('/api/users', (req, res) => {
   if (!req.session.loggedIn) {
@@ -251,13 +272,16 @@ app.post('/api/user/add', (req, res) => {
   const userName = req.body.name;
   const userEmail = req.body.email;
   const userCard = req.body.card;
+  const doorCard = req.body.doorCard;
+  const groupMembers = req.body.members;
+  const isGroup = Array.isArray(groupMembers);
   
-  if (!userName || !userCard) {
+  if (!userName || (isGroup && groupMembers.length > 0 && isNaN(groupMembers[0]))) {
     res.status(400).json(Response.mkErr("Malformed request"));
     return;
   }
   
-  if (data.addUser(userName, userEmail, userCard)) {
+  if (data.addUser(userName, userEmail, userCard, doorCard, isGroup, groupMembers)) {
     res.json(Response.mkOk());
   } else {
     res.json(Response.mkErr("Internal error"));
@@ -277,8 +301,11 @@ app.post('/api/user/edit', (req, res) => {
   const userName = req.body.name;
   const userEmail = req.body.email;
   const userCard = req.body.card;
+  const doorCard = req.body.doorCard;
+  const groupMembers = req.body.members;
+  const isGroup = Array.isArray(groupMembers);
   
-  if (!userId || !userName || !userCard) {
+  if (!userId || !userName || (isGroup && groupMembers.length > 0 && isNaN(groupMembers[0]))) {
     res.status(400).json(Response.mkErr("Malformed request"));
     return;
   }
@@ -290,7 +317,7 @@ app.post('/api/user/edit', (req, res) => {
     return;
   }
 
-  if (data.editUser(userId, userName, userEmail, userCard)) {
+  if (data.editUser(userId, userName, userEmail, userCard, doorCard, isGroup, groupMembers)) {
     res.json(Response.mkOk());
   } else {
     res.json(Response.mkErr("Internal error"));
@@ -322,6 +349,46 @@ app.post('/api/user/delete', (req, res) => {
   }
 
   sendUpdateNotification();
+});
+
+app.post('/api/enroll/query', (req, res) => {
+  let doorCard = req.body.doorCard;
+
+  if (!doorCard) {
+    res.status(400).json(Response.mkErr("Malformed request"));
+    return;
+  }
+
+  let result = data.findDoorCardName(doorCard);
+  
+  if (result && result.value) {
+    res.status(200).json(Response.mkData(result.value));
+  } else {
+    res.status(200).json(Response.mkErr(result.error));
+  }
+});
+
+app.post('/api/enroll/register', (req, res) => {
+  let doorCard = req.body.doorCard;
+  let toolCard = req.body.toolCard;
+
+  if (!doorCard || !toolCard) {
+    res.status(400).json(Response.mkErr("Malformed request"));
+    return;
+  }
+
+  if (data.isToolCardRegistered(toolCard)) {
+    res.status(200).json(Response.mkErr("Tool card already registered"));
+    return;
+  }
+
+  let result = data.registerToolCard(doorCard, toolCard);
+  
+  if (result) {
+    res.status(200).json(Response.mkOk());
+  } else {
+    res.status(404).end(Response.mkErr("Internal error"));
+  }
 });
 
 

@@ -104,6 +104,9 @@ export default {
   },
   mounted() {
       this.$root.$on('edit-tool', x => this.startDlg(x))
+  },
+  beforeDestroy() {
+    this.$root.$off('edit-tool');
   }
 }
 </script>
