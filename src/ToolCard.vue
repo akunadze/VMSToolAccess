@@ -39,7 +39,6 @@
             <span class="bg-white border p-1 flex-fill">
               {{ tool.utilization }}%
             </span>
-            <b-button @click="debugFunc">Full Log</b-button>
           </div>
         </b-collapse>
     </b-card-body>
@@ -111,13 +110,6 @@ export default {
       } else {
         return "";
       }
-    },
-    debugFunc() {
-      fetch(`/api/hello`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({mac: this.tool.mac, logs: []})
-      }).then(resp => resp.json().then(respJson => console.log(respJson)));
     }
   }
 }
