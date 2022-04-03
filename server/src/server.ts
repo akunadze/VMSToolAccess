@@ -122,10 +122,15 @@ app.post('/api/hello', (req, res) => {
       if (user) {
         if (user.group) {
           for (const member of user.members) {
-            response.userCards.push(member);
+            const memberUser = users.find(u => u.id == member);
+            if (memberUser && memberUser.card != "") {
+              response.userCards.push(memberUser.card);
+            }
           }
         } else {
-          response.userCards.push(user.card);
+          if (user.card != "") {
+            response.userCards.push(user.card);
+          }
         }
       }
     });
