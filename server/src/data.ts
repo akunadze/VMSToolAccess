@@ -24,6 +24,7 @@ var stmtGetAllToolsUtil: sqlite3.Statement;
 var stmtDoorCardQuery: sqlite3.Statement;
 var stmtRegisterToolCard: sqlite3.Statement;
 var stmtIsToolCardRegistered: sqlite3.Statement;
+var stmtGetGroupId:  sqlite3.Statement;
 
 function nullIfEmpty(x: string) {
     if (x && x.length > 0) {
@@ -120,6 +121,7 @@ export function initData() {
         db = new sqlite3(__dirname + '/../data/toolaccess.db');
 
         db.exec(`
+        PRAGMA foreign_keys = off;
         BEGIN TRANSACTION;
         
         -- Table: AccessLog
@@ -164,13 +166,22 @@ export function initData() {
         );
         
         
+        -- Table: UserGroupMap
+        CREATE TABLE IF NOT EXISTS UserGroupMap (
+            groupId INTEGER REFERENCES Users (id),
+            userId  INTEGER REFERENCES Users (id) ON DELETE CASCADE
+        );
+        
+        
         -- Table: Users
         CREATE TABLE IF NOT EXISTS Users (
             id       INTEGER PRIMARY KEY ASC,
-            fullName STRING  NOT NULL,
+            fullName STRING  NOT NULL
+                             DEFAULT ('New User ' || LAST_INSERT_ROWID() ),
             email    STRING,
             card     STRING  UNIQUE,
-            doorCard STRING  UNIQUE
+            doorCard STRING  UNIQUE ON CONFLICT IGNORE,
+            isGroup  BOOLEAN DEFAULT (FALSE) 
         );
         
         
@@ -188,6 +199,7 @@ export function initData() {
         
         
         COMMIT TRANSACTION;
+        PRAGMA foreign_keys = on;
         `);
 
         stmtGetTools = db.prepare('SELECT id, name, mac FROM Tools');
@@ -199,7 +211,7 @@ export function initData() {
         stmtDeleteTool = db.prepare('DELETE FROM Tools WHERE id = ?');
         stmtEditTool = db.prepare('UPDATE Tools SET name = ? WHERE id = ?');
         stmtAddPermission = db.prepare('INSERT INTO Permissions (toolId, userId) VALUES (?,?)');
-        stmtAddUser = db.prepare('INSERT INTO Users(fullName, email, card, doorCard, isGroup) VALUES(?,?,?,?,?)');
+        stmtAddUser = db.prepare('INSERT INTO Users(fullName, email, card, doorCard, isGroup) VALUES(IFNULL(?, \'New User \' || (select max(id) + 1 from Users)),?,?,?,?)');
         stmtDeleteAllPermissions = db.prepare('DELETE FROM Permissions WHERE toolId = ?');
         stmtAddLogEntry = db.prepare('INSERT INTO AccessLog (toolId, userId, timestamp, op, card) VALUES (?,?,?,?,?)');
         stmtEditUser = db.prepare('UPDATE Users SET fullName = ?, email = ?, card = ?, doorCard = ? WHERE id = ?');
@@ -212,9 +224,10 @@ export function initData() {
         
         stmtGetAllToolsUtil = db.prepare("with lengths as (select *, IIF(op = 'out' AND (LAG(op) OVER ()) = 'in' AND userId = (LAG(userId) OVER ()), timestamp - LAG(timestamp, 1, 0) OVER (), 0) as length from AccessLog ORDER BY timestamp) select toolId, name, ROUND((SUM(length) * (7*24.0)) / (strftime('%s','now') - MIN(timestamp)), 1) as HoursPerWeek from lengths JOIN tools ON toolId = id GROUP BY toolId");
 
-        stmtDoorCardQuery = db.prepare("SELECT fullName, card FROM Users WHERE doorCard = ?");
+        stmtDoorCardQuery = db.prepare("SELECT id, fullName, card FROM Users WHERE doorCard = ?");
         stmtRegisterToolCard = db.prepare("UPDATE Users SET card = ? WHERE doorCard = ? AND card IS NULL");
         stmtIsToolCardRegistered = db.prepare("SELECT fullName FROM Users WHERE card = ?");
+        stmtGetGroupId = db.prepare("SELECT id FROM Users WHERE fullName = ?");
     } catch(e) {
         console.log('Error in initData: ' + e);
     }
@@ -310,7 +323,7 @@ export function setToolUsers(toolId: number, userIds: number[]) {
 export function addUser(userName: string, userEmail: string, userCard: string, doorCard: string, isGroup: boolean, groupMembers: number[]) {
     try {
         const addUserTrans = db.transaction (() => {
-            const result = stmtAddUser.run(userName, nullIfEmpty(userEmail), nullIfEmpty(userCard), nullIfEmpty(doorCard), isGroup ? 1 : 0);
+            const result = stmtAddUser.run(nullIfEmpty(userName), nullIfEmpty(userEmail), nullIfEmpty(userCard), nullIfEmpty(doorCard), isGroup ? 1 : 0);
             if (isGroup) {
                 for (const memberId of groupMembers) {
                     stmtAddGroupMapEntry.run(result.lastInsertRowid, memberId);
@@ -330,10 +343,13 @@ export function addUser(userName: string, userEmail: string, userCard: string, d
 export function editUser(userId: number, userName: string, userEmail: string, userCard: string, doorCard: string, isGroup: boolean, groupMembers: number[]) {
     try {
         const editUserTrans = db.transaction (() => {
+            console.log('User edit: name=' + userName + ', email=' + userEmail + ', card=' + userCard + ', doorCard=' + nullIfEmpty(doorCard));
             stmtEditUser.run(userName, nullIfEmpty(userEmail), nullIfEmpty(userCard), nullIfEmpty(doorCard), userId);
             stmtDeleteGroupMap.run(userId);
-            for (const memberId of groupMembers) {
-                stmtAddGroupMapEntry.run(userId, memberId);
+            if (isGroup) {
+                for (const memberId of groupMembers) {
+                    stmtAddGroupMapEntry.run(userId, memberId);
+                }
             }
         });
         
@@ -401,7 +417,23 @@ export function findDoorCardName(doorCard: string) {
                 return {value: result.fullName};
             }
         } else {
-            return {error: "User not found"};
+            if (addUser("","","",doorCard,false,null)) {
+                const newUser = stmtDoorCardQuery.get(doorCard);
+                if (newUser) {
+                    const group = stmtGetGroupId.get("Everyone");
+                    if (group) {
+                        stmtAddGroupMapEntry.run(group.id, newUser.id);
+                    } else {
+                        return {error: "Error adding user to the group"};
+                    }
+                    
+                    return {value: newUser.fullName};
+                } else {
+                    return {error: "Error adding user"};
+                }
+            } else {
+                return {error: "Error adding user"};
+            }
         }
     } catch(e) {
         console.log('Error in findDoorCardName: ' + e);

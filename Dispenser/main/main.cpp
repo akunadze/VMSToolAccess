@@ -185,7 +185,7 @@ bool detectCard() {
 
 void formatUid(char *buffer) {
     for (int i = 0; i < rfid.uid.size; i++) {
-        sprintf(buffer + i*2, "%x", rfid.uid.uidByte[i]);
+        sprintf(buffer + i*2, "%02x", rfid.uid.uidByte[i]);
     }
 }
 
