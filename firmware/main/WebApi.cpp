@@ -233,7 +233,7 @@ void WebApi::helloTask(void *pvParam) {
             pThis->sendHello();
         }
 
-        xEventGroupWaitBits(pThis->m_eventLogAvailable, 1, false, false, pdMS_TO_TICKS(10000));
+        xEventGroupWaitBits(pThis->m_eventLogAvailable, 1, false, false, pdMS_TO_TICKS(5000));
         xEventGroupClearBits(pThis->m_eventLogAvailable, 1);
     }
 }
