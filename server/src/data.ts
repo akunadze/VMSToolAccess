@@ -27,7 +27,7 @@ var stmtIsToolCardRegistered: sqlite3.Statement;
 var stmtGetGroupId:  sqlite3.Statement;
 
 function nullIfEmpty(x: string) {
-    if (x && x.length > 0) {
+    if (x) {
         return x;
     } else {
         return null;
