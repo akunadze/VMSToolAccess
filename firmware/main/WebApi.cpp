@@ -12,6 +12,8 @@
 #include "SemaphoreLock.h"
 #include "time.h"
 #include "esp_heap_trace.h"
+#include "esp_ota_ops.h"
+#include "esp_https_ota.h"
 #include "ca_pem.h"
 
 
@@ -21,11 +23,9 @@ WebClient::WebClient(Config &conf, const char *path, const char *postData) : m_c
     char url[256];
 
     strcpy(url, m_config.getMasterUrl());
-    if (url[strlen(url) - 1] == '/') {
-        url[strlen(url) - 1] = '\0';
-    }
-
     strcat(url, path);
+
+    ESP_LOGI(TAG, "WebClient URL: %s", url);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
@@ -220,6 +220,64 @@ void WebApi::sendHello() {
     }
 }
 
+int WebApi::checkForUpdate() {
+    int result = 0;
+
+    auto obj = cJSON_CreateObject();
+    cJSON_AddItemToObject(obj, "version", cJSON_CreateNumber(Config::sVersion));
+
+    char *printed = cJSON_PrintUnformatted(obj);
+    WebClient client(m_config, "/api/update", printed);
+    
+    client.waitForResponse();
+
+    free(printed);
+    cJSON_Delete(obj);
+
+    if (client.getStatus() == 200) {
+        std::vector<std::string> newUsers;
+
+        ESP_LOGI(TAG, "%s", client.getResponse());
+
+        auto json = cJSON_Parse(client.getResponse());
+        if (json) {
+            auto updateAvailable = cJSON_GetObjectItem(json, "updateAvailable");
+            if (updateAvailable && cJSON_IsNumber(updateAvailable)) {
+                result = (int)cJSON_GetNumberValue(updateAvailable);
+            }
+            
+            cJSON_Delete(json);
+        }
+    } else {
+        ESP_LOGE(TAG, "WebClient returned status %d", client.getStatus());
+    }
+
+    return result;
+}
+
+void WebApi::doUpdate(int newVersion) {
+    ESP_LOGI(TAG, "Starting OTA update");
+
+    char url[256];
+
+    sprintf(url, "%s/updates/%d.bin", m_config.getMasterUrl(), newVersion);
+
+    esp_http_client_config_t config = {};
+    config.url = url;
+    config.cert_pem = (char *)serverCert;
+    config.event_handler = NULL;
+    config.keep_alive_enable = true;
+
+    ESP_LOGI(TAG, "Attempting to download update from %s", config.url);
+    esp_err_t ret = esp_https_ota(&config);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "OTA Succeed, Rebooting...");
+        esp_restart();
+    } else {
+        ESP_LOGE(TAG, "Firmware upgrade failed");
+    }
+}
+
 void WebApi::startHelloTask() {
     xTaskCreate(&WebApi::helloTask, "HelloTask", 8192, this, 5, NULL);
 }
@@ -231,6 +289,10 @@ void WebApi::helloTask(void *pvParam) {
         if (pThis->m_wifi.isConnected()) {
             ESP_LOGI(TAG, "Sending hello. Heap %d", esp_get_free_heap_size());
             pThis->sendHello();
+            int newVersion = pThis->checkForUpdate();
+            if (newVersion > 0) {
+                pThis->doUpdate(newVersion);
+            }
         }
 
         xEventGroupWaitBits(pThis->m_eventLogAvailable, 1, false, false, pdMS_TO_TICKS(5000));

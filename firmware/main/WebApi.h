@@ -65,5 +65,7 @@ private:
     EventGroupHandle_t m_eventLogAvailable;
 
     void sendHello();
+    int checkForUpdate();
+    void doUpdate(int newVersion);
     static void helloTask(void *pvParam);
 };
