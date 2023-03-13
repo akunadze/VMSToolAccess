@@ -2,6 +2,7 @@
 #include "esp_system.h"
 #include "Config.h"
 #include "SemaphoreLock.h"
+#include <string.h>
 
 Config::Config() : 
     m_wifiSid{0}, m_wifiPass{0}, m_masterUrl{0}, m_macAddress{0}
@@ -22,6 +23,13 @@ Config::Config() :
     ESP_ERROR_CHECK(nvs_get_str(hNvs, "wifiPass", m_wifiPass, &strLen));
     strLen = sizeof(m_masterUrl);
     ESP_ERROR_CHECK(nvs_get_str(hNvs, "masterUrl", m_masterUrl, &strLen));
+    strLen = sizeof(m_syslogHost);
+    ESP_ERROR_CHECK(nvs_get_str(hNvs, "syslogHost", m_syslogHost, &strLen));
+    ESP_ERROR_CHECK(nvs_get_u16(hNvs, "syslogPort", &m_syslogPort));
+
+    if (m_masterUrl[strlen(m_masterUrl) - 1] == '/') {
+        m_masterUrl[strlen(m_masterUrl) - 1] = '\0';
+    }
 
     nvs_close(hNvs);
 

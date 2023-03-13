@@ -19,6 +19,7 @@
 #include "Config.h"
 #include "esp_log.h"
 #include "esp_heap_trace.h"
+//#include "Syslog.h"
 
 #include "WS2812.h"
 
@@ -147,6 +148,10 @@ void app_main(void)
 
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
+    Config config;
+    //Syslog syslog(config);
+    WiFi wifi(config);
+
 	gpio_set_direction((gpio_num_t)16, GPIO_MODE_OUTPUT);
 
     WS2812 leds((gpio_num_t)32, 2);
@@ -155,9 +160,6 @@ void app_main(void)
     leds.setPixel(0, ledPhase ? 255 : 0, ledPhase ? 0 : 255, 0);
     leds.setPixel(1, ledPhase ? 0 : 255, ledPhase ? 255 : 0, 0);
     leds.show();
-
-    Config config;
-    WiFi wifi(config);
 
     rfid.PCD_Init(21, 22);
 
