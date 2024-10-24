@@ -56,7 +56,7 @@ public:
     ~WebApi();
 
     void startHelloTask();
-    void addLog(const char *card, LogEntry::OpType op);
+    void addLog(const char *card, LogEntry::OpType op, time_t tm = time(NULL));
 private:
     Config &m_config;
     WiFi &m_wifi;

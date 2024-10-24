@@ -300,10 +300,10 @@ void WebApi::helloTask(void *pvParam) {
     }
 }
 
-void WebApi::addLog(const char *card, LogEntry::OpType op) {
+void WebApi::addLog(const char *card, LogEntry::OpType op, time_t tm) {
     SemaphoreLock lock(m_semLog);
 
-    m_log.push_back(LogEntry(card, op, time(NULL)));
+    m_log.push_back(LogEntry(card, op, tm));
     xEventGroupSetBits(m_eventLogAvailable, 1);
 }
 

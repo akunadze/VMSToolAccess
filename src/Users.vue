@@ -6,7 +6,7 @@
     <b-col cols="4" class="d-flex flex-column flex-grow-1 pt-2 px-1 no-minh">
         <div class="p-0 m-0 d-flex flex-grow-1 flex-column border rounded no-minh" style="overflow-y: auto; height:100%">
 
-        <b-list-group id="userList" class="list-group-flush d-flex flex-grow-1 mb-2 no-minh" role="tablist">
+        <b-list-group id="userList" class="list-group-flush d-flex flex-grow-1 mb-2 no-minh" role="tablist" @click="onEmptySpaceClick">
             <b-list-group-item button data-toggle="list" role="tab"
                 v-for="user in this.$root.$data.shared.getUsers()" 
                 v-bind:key="user.id" 
@@ -28,7 +28,8 @@
         </div>
         <div class="d-flex mt-2">
                 <b-button class="mr-2" type="submit" variant="outline-primary" @click.prevent="addUser">Add User</b-button>
-                <b-button class="" type="reset" variant="outline-primary" @click.prevent="addGroup">Add Group</b-button>
+                <b-button class="mr-2" type="reset" variant="outline-primary" @click.prevent="addGroup">Add Group</b-button>
+                <b-button class="" type="reset" variant="outline-primary" @click.prevent="findUserByCard">Find User</b-button>
         </div>
     </b-col>
     <b-col cols="8" class="d-flex flex-grow-1 flex-column px-1" v-if="selectedUser">
@@ -103,6 +104,22 @@
             </div>
         </b-form>
     </b-col>
+    <b-modal :modal-class="shakeDlg ? 'shake' : ''" id="findUserDlg" title="Find User" @ok="onOkFindUserDlg" @hidden="onHideFindUserDlg">
+    <form ref="form" @submit="onSubmitFindUserDlg">
+        <b-form-group
+        label="Tool Card"
+        label-for="tool-card-input"
+        >
+        <b-form-input
+            id="tool-card-input"
+            v-model="findUserToolCard"
+            required
+            autocomplete="off"
+            autofocus
+        ></b-form-input>
+        </b-form-group>
+    </form>
+    </b-modal>
   </div>
 </template>
 
@@ -118,7 +135,9 @@ export default {
       activeTab: null,
       newUser: null,
       cardFocused: false,
-      changed: false
+      changed: false,
+      findUserToolCard: "",
+      shakeDlg: false,
   }},
   methods: {
     onInput() {
@@ -168,6 +187,13 @@ export default {
             this.selectUser(x);
         })
     },
+    onEmptySpaceClick(x) {
+        if (x.target.id === 'userList') {
+            this.promptChange().then(() => {
+                this.selectUser(null);
+            });
+        }
+    },
     selectUser(x) {
         this.selectedUser = x;
         this.changed = false;
@@ -201,6 +227,46 @@ export default {
             this.newUser = {fulleName: "", email: "", card: "", doorCard: "", group: 1};
             this.selectUser(this.newUser);
         });
+    },
+    findUserByCard() {
+        this.promptChange().then(() => {
+            this.findUserToolCard = "";
+            if (!this.$root.$data.shared.enterModal()) {
+                return;
+            }
+            this.$bvModal.show('findUserDlg');
+        });
+    },
+    onHideFindUserDlg() {
+        this.$root.$data.shared.exitModal();
+    },
+    onOkFindUserDlg(bvModalEvt) {
+      // Prevent modal from closing
+      bvModalEvt.preventDefault();
+      // Trigger submit handler
+      this.onSubmitFindUserDlg();
+    },
+    onSubmitFindUserDlg() {
+        let foundUser = false;
+        for (const x of this.$root.$data.shared.getUsers()) {
+            if (x.card == this.findUserToolCard) {
+                foundUser = true;
+                this.selectUser(x);
+                break;
+            }
+        }
+
+        if (foundUser) {
+            this.$nextTick(() => {
+                this.$bvModal.hide('findUserDlg')
+            })
+        } else {
+            //this.shakeDlg = false;
+            this.shakeDlg = true;
+            setTimeout(() => {
+                this.shakeDlg = false;
+            }, 1000); // Match animation duration
+        }
     },
     onReset() {
         this.selectUser(this.selectedUser);
@@ -254,3 +320,40 @@ export default {
   }
 }
 </script>
+<style>
+   .rebg {
+     background-color: red;
+   }
+
+   .bluebg {
+    background-color: blue;
+   }
+
+   .shake {
+    animation: shake 0.82s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    transform: translate3d(0, 0, 0);
+    }
+
+    @keyframes shake {
+    10%,
+    90% {
+        transform: translate3d(-1px, 0, 0);
+    }
+
+    20%,
+    80% {
+        transform: translate3d(2px, 0, 0);
+    }
+
+    30%,
+    50%,
+    70% {
+        transform: translate3d(-4px, 0, 0);
+    }
+
+    40%,
+    60% {
+        transform: translate3d(4px, 0, 0);
+    }
+    }
+</style>
