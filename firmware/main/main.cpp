@@ -19,6 +19,7 @@
 #include "Config.h"
 #include "esp_log.h"
 #include "esp_heap_trace.h"
+#include "nvs_flash.h"
 //#include "Syslog.h"
 
 #include "WS2812.h"
@@ -141,6 +142,34 @@ void lightShowTask(void *pvParam) {
     }
 }
 
+void saveActiveCard(const char *card) {
+    nvs_handle_t hNvs;
+    ESP_ERROR_CHECK(nvs_open("config", NVS_READWRITE, &hNvs));
+
+    ESP_ERROR_CHECK(nvs_set_str(hNvs, "activeCard", card));
+    ESP_ERROR_CHECK(nvs_set_i64(hNvs, "activeCardTime", time(NULL)));
+
+    nvs_close(hNvs);
+}
+
+bool getActiveCard(char *cardBuffer, size_t bufferSize, time_t &timestamp) {
+    nvs_handle_t hNvs;
+    ESP_ERROR_CHECK(nvs_open("config", NVS_READWRITE, &hNvs));
+
+    bool bFound = false;
+
+    if (nvs_get_str(hNvs, "activeCard", cardBuffer, &bufferSize) == ESP_OK) {
+        if (strlen(cardBuffer) > 0 &&
+            nvs_get_i64(hNvs, "activeCardTime", (int64_t *)&timestamp) == ESP_OK) 
+        {
+            bFound = true;
+        }
+    }
+
+    nvs_close(hNvs);
+
+    return bFound;
+}
 
 void app_main(void)
 {
@@ -174,6 +203,14 @@ void app_main(void)
 
     WebApi api(config, wifi);
     api.startHelloTask();
+
+    char savedCard[64];
+    time_t savedTime;
+    if (getActiveCard(savedCard, sizeof(savedCard), savedTime)) {
+        ESP_LOGI(TAG, "Sending a tardy logout...");
+        api.addLog(savedCard, LogEntry::LogOut, savedTime);
+        saveActiveCard("");
+    }
 
     while (true) {
         bStopLightShow = false;
@@ -215,12 +252,16 @@ void app_main(void)
             setAccess(bAuthorized);
 
             while (isCardStillThere()) {
+                if (bAuthorized) {
+                    saveActiveCard(currentCard);
+                }
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
             if (bAuthorized) {
                 setAccess(false);
                 api.addLog(currentCard, LogEntry::LogOut);
+                saveActiveCard("");
             }
             
             currentCard[0] = 0;

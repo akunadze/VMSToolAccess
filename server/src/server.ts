@@ -22,8 +22,8 @@ app.use(session({secret: config.SESSION_SECRET, saveUninitialized: false, resave
 
 data.initData();
 
-let users: User[] = data.getUsers();
-let tools: Tool[] = data.getTools();
+// let users: User[] = data.getUsers();
+// let tools: Tool[] = data.getTools();
 
 interface LastSeen {
   toolMac: string;
@@ -32,10 +32,13 @@ interface LastSeen {
 
 let watchdog:LastSeen[] = [];
 
+let latestVersion:number = 0;
+
 const saltRounds = 10;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../../dist')));
+app.use('/updates', express.static(path.join(__dirname, '../../updates')));
 
 function getTime() { return Math.floor(Date.now() / 1000);}
 
@@ -102,7 +105,13 @@ app.get('/api/logout', (req,res) => {
 app.post('/api/hello', (req, res) => {
   //console.log('Hello from tool ' + req.body.mac);
 
-  let response:any = {
+  let users: User[] = data.getUsers();
+  let tools: Tool[] = data.getTools();
+
+  let response: {
+    userCards: string[];
+    time: number;
+  } = {
     userCards: [],
     time: getTime()
   };
@@ -128,7 +137,7 @@ app.post('/api/hello', (req, res) => {
             }
           }
         } else {
-          if (user.card != "") {
+          if (user.card) {
             response.userCards.push(user.card);
           }
         }
@@ -187,7 +196,8 @@ app.get('/api/users', (req, res) => {
   }
 
   console.log('api/users called')
-  users = data.getUsers();
+  let users: User[] = data.getUsers();
+
   res.json(Response.mkData(users));
 });
 
@@ -198,8 +208,8 @@ app.get('/api/tools', (req, res) => {
   }
 
   console.log('api/tools called.')
-  tools = data.getTools();
-
+  let tools: Tool[] = data.getTools();
+  
   for (const tool of tools) {
     const lastSeen = watchdog.find(x => x.toolMac === tool.mac);
     tool.offline = !lastSeen || (getTime() - lastSeen.timestamp) > 30;
@@ -214,6 +224,8 @@ app.post('/api/tool/delete', (req, res) => {
   }
 
   console.log('api/tool/delete called.')
+  let tools: Tool[] = data.getTools();
+  
   const toolId = req.body.id;
   
   if (!tools.find(x => x.id === toolId)) {
@@ -237,7 +249,9 @@ app.post('/api/tool/edit', (req, res) => {
   }
 
   console.log('api/tool/edit called');
-  
+  let users: User[] = data.getUsers();
+  let tools: Tool[] = data.getTools();
+    
   const toolId = req.body.toolId;
   let tool = tools.find(x => x.id === toolId);
   if (!tool) {
@@ -274,6 +288,7 @@ app.post('/api/user/add', (req, res) => {
   }
 
   console.log('api/user/add called.')
+
   const userName = req.body.name;
   const userEmail = req.body.email;
   const userCard = req.body.card;
@@ -302,6 +317,9 @@ app.post('/api/user/edit', (req, res) => {
   }
 
   console.log('api/user/edit called.')
+
+  let users: User[] = data.getUsers();
+
   const userId = req.body.id;
   const userName = req.body.name;
   const userEmail = req.body.email;
@@ -338,6 +356,9 @@ app.post('/api/user/delete', (req, res) => {
   }
 
   console.log('api/user/delete called.')
+
+  let users: User[] = data.getUsers();
+  
   const userId = req.body.id;
   
   let user = users.find(x => x.id === userId);
@@ -396,6 +417,23 @@ app.post('/api/enroll/register', (req, res) => {
   }
 });
 
+app.post('/api/update', (req,res) => {
+  let ver = req.body.version;
+
+  console.log('Update called. Version = ' + ver);
+
+  let response:any = {
+  };
+
+  if (ver < latestVersion) {
+    console.log('Update available.');
+    response.updateAvailable = latestVersion;
+  }
+
+  res.status(200).json(response);
+});
+
+
 
 function sendUpdateNotification() {
   console.log('Sending updates');
@@ -430,6 +468,8 @@ wsServer.on('connection', (socket: WebSocket) => {
 setInterval(() => {
   let change = false;
 
+  let tools: Tool[] = data.getTools();
+
   for (const tool of tools) {
     const lastSeen = watchdog.find(x => x.toolMac === tool.mac);
     const oldOffline = tool.offline;
@@ -442,6 +482,25 @@ setInterval(() => {
   if (change) {
     sendUpdateNotification();
   }
+
+  try {
+    let ver = 0;
+    fs.readdirSync(path.join(__dirname, '../../updates')).forEach(file => {
+      let match = file.match('^(\[0-9]+)\.bin');
+      if (match) {
+        if (+match[1] > ver) {
+          ver = +match[1];
+        }
+      }
+    });
+    if (latestVersion !== ver) {
+      console.log("Update version available: " + ver);
+    }
+    latestVersion = ver;
+  } catch(e) {
+    console.log('Error scanning updates: ' + e);
+  }
+
 }, 10000);
 
 import('./mfrc522').then(rfid => {

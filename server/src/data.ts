@@ -130,9 +130,9 @@ export function initData() {
                                                     ON UPDATE CASCADE,
             userId    INTEGER REFERENCES Users (id) ON DELETE CASCADE
                                                     ON UPDATE CASCADE,
-            op        STRING  NOT NULL,
+            op        TEXT  NOT NULL,
             timestamp INTEGER DEFAULT (strftime('%s', 'now') ),
-            card      STRING
+            card      TEXT
         );
         
         
@@ -152,17 +152,17 @@ export function initData() {
         
         -- Table: Settings
         CREATE TABLE IF NOT EXISTS Settings (
-            [Key] STRING NOT NULL
+            [Key] TEXT NOT NULL
                          PRIMARY KEY,
-            Value STRING NOT NULL
+            Value TEXT NOT NULL
         );
         
         
         -- Table: Tools
         CREATE TABLE IF NOT EXISTS Tools (
             id   INTEGER PRIMARY KEY ASC,
-            name STRING,
-            mac  STRING  UNIQUE
+            name TEXT,
+            mac  TEXT  UNIQUE
         );
         
         
@@ -176,11 +176,11 @@ export function initData() {
         -- Table: Users
         CREATE TABLE IF NOT EXISTS Users (
             id       INTEGER PRIMARY KEY ASC,
-            fullName STRING  NOT NULL
+            fullName TEXT  NOT NULL
                              DEFAULT ('New User ' || LAST_INSERT_ROWID() ),
-            email    STRING,
-            card     STRING  UNIQUE,
-            doorCard STRING  UNIQUE ON CONFLICT IGNORE,
+            email    TEXT,
+            card     TEXT  UNIQUE,
+            doorCard TEXT  UNIQUE ON CONFLICT IGNORE,
             isGroup  BOOLEAN DEFAULT (FALSE) 
         );
         
