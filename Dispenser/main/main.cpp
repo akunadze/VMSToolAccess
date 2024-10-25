@@ -233,7 +233,8 @@ void app_main(void)
             char name[50];
             char doorCard[50];
 
-            sprintf(doorCard, "%d", HIDgetCardCode());
+            sprintf(doorCard, "%x:%d", HIDgetFacilityCode(), HIDgetCardCode());
+            ESP_LOGI(TAG, "Doorcard %s", doorCard);
 
             i2c_lcd1602_clear(lcd_info);
             lcdWriteJustified(lcd_info, "Contacting server...", 1);
