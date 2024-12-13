@@ -5,10 +5,4 @@ declare module 'express-session' {
         loggedIn: boolean
     }
 }
-/* declare global {
-    namespace session {
-        interface SessionData {
-            loggedIn: boolean;
-        }
-    }
-} */
+
