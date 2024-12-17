@@ -1,5 +1,7 @@
 key,type,encoding,value
 config,namespace,,
-wifiSid,data,string,<wifi SSID>
-wifiPass,data,string,<wifi pass>
-masterUrl,data,string,https://192.168.1.80:3080/
+wifiSid,data,string,C60Rock
+wifiPass,data,string,ziggy.420$
+masterUrl,data,string,https://192.168.1.76:3080/
+syslogHost,data,string,192.168.1.76
+syslogPort,data,u16,514
