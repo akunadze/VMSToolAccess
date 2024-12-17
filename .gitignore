@@ -21,3 +21,5 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+firmware/nvs.bin
+firmware/main/ca_pem.h
