@@ -1,5 +1,8 @@
 #include "nvs_flash.h"
 #include "esp_system.h"
+#include "esp_mac.h"
+#include "esp_random.h"
+#include "esp_chip_info.h"
 #include "Config.h"
 #include "SemaphoreLock.h"
 #include <string.h>
