@@ -21,10 +21,3 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
-package-lock.json
-package-lock.json
-package-lock.json
-firmware/nvs.bin
-firmware/main/ca_pem.h
-server/keys/MyRootCA.key
-server/keys/MyRootCA.pem

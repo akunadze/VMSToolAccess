@@ -25,7 +25,7 @@ void WiFi::eventHandler(void* arg, esp_event_base_t event_base, int32_t event_id
         pThis->m_bConnected = false;
         esp_wifi_connect();
         ESP_LOGI(TAG, "retry to connect to the AP");
-        ESP_LOGI(TAG, "Heap %lu", esp_get_free_heap_size());
+        ESP_LOGI(TAG, "Heap %d", esp_get_free_heap_size());
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
