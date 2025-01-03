@@ -12,14 +12,18 @@ openssl req -x509 -new -nodes -key MyRootCA.key -sha256 -days 1024 -out MyRootCA
 # ========= Generating firmware header file =========
 echo "=========== Generating firmware header file =============="
 
-# Creating the firmware header file
-echo 'static const char *serverCert = R"~~~~(' > ../../firmware/main/ca_pem.h
+#!/bin/bash
 
-# Append the certificate content to the header file
-# The certificate is read and written as a single string literal
-awk 'BEGIN { ORS=""; print "\"" } { print $0 "\\n" } END { print "\"" }' MyRootCA.pem >> ../../firmware/main/ca_pem.h
+# Define the target file
+TARGET_FILE="../../firmware/main/ca_pem.h"
 
-# Close the raw string literal
-echo ')~~~~";' >> ../../firmware/main/ca_pem.h
+# Append the beginning of the raw string
+echo 'static const char *serverCert = R"~~~~(' > "$TARGET_FILE"
+
+# Append the contents of the PEM file
+cat MyRootCA.pem >> "$TARGET_FILE"
+
+# Append the closing delimiter for the raw string
+echo ')~~~~";' >> "$TARGET_FILE"
 
 echo "Header file generated at ../../firmware/main/ca_pem.h"
