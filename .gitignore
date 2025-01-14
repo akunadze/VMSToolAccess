@@ -23,3 +23,9 @@ pnpm-debug.log*
 *.sw?
 firmware/nvs.bin
 firmware/main/ca_pem.h
+server/keys/server.csr
+server/keys/server.key
+package-lock.json
+package-lock.json
+server/server.pem
+server/server.key
