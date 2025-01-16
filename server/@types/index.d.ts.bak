@@ -1,9 +1,0 @@
-import session from 'express-session';
-
-declare global {
-    namespace session {
-        interface SessionData {
-            loggedIn: boolean;
-        }
-    }
-}

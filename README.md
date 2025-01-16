@@ -67,3 +67,30 @@ Last step is to flash provisioning data to the device:
 2. Open ESP-IDF Terminal in VSCode
 3. Make sure you're in \<repo root>/firmware directory and run burnSettings.cmd. Hold down "boot" button on the ESP board to allow the flash to happen
 
+
+## OSX Instrustions
+Do certificate generation
+genca.sh
+genkeys.sh
+copy  server.key and server.pem to server directory
+create data directory in server path
+
+
+open terminal in vscode
+export esp-idf environment paths
+
+cd ~/esp/esp-idf
+. ./export.sh
+
+Change to firmware build directory
+verify setting and flash size with idf.py menuconfig 
+idf.py build clean
+edit nvs.csv with required wifi credentials
+run burnsettings.sh  you might need to change the port the usb is on.
+idf.py flash
+
+Server
+npx nodemon
+
+Client
+npm serve

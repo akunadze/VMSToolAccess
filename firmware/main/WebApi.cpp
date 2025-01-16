@@ -29,6 +29,7 @@ WebClient::WebClient(Config &conf, const char *path, const char *postData) : m_c
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
     esp_http_client_config_t config = {
         .url = url,
         .cert_pem = serverCert,
@@ -36,6 +37,7 @@ WebClient::WebClient(Config &conf, const char *path, const char *postData) : m_c
         .event_handler = WebClient::eventHandler,
         .user_data = this
     };
+    
 #pragma GCC diagnostic pop
 
 
@@ -129,6 +131,9 @@ esp_err_t WebClient::eventHandler(esp_http_client_event_t *evt) {
             ESP_LOGD(TAG, "HTTP_EVENT_DISCONNECTED\n");
             pThis->m_status = -1;
             pThis->signalEnd();
+            break;
+        case HTTP_EVENT_REDIRECT:
+            ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT\n");
             break;
     }
     return ESP_OK;
@@ -268,8 +273,12 @@ void WebApi::doUpdate(int newVersion) {
     config.event_handler = NULL;
     config.keep_alive_enable = true;
 
+    esp_https_ota_config_t ota_config = {
+        .http_config = &config,
+    };
+
     ESP_LOGI(TAG, "Attempting to download update from %s", config.url);
-    esp_err_t ret = esp_https_ota(&config);
+    esp_err_t ret = esp_https_ota(&ota_config);
     if (ret == ESP_OK) {
         ESP_LOGI(TAG, "OTA Succeed, Rebooting...");
         esp_restart();
@@ -287,7 +296,7 @@ void WebApi::helloTask(void *pvParam) {
 
     while (true) {
         if (pThis->m_wifi.isConnected()) {
-            ESP_LOGI(TAG, "Sending hello. Heap %d", esp_get_free_heap_size());
+            ESP_LOGI(TAG, "Sending hello. Heap %lu", esp_get_free_heap_size());
             pThis->sendHello();
             int newVersion = pThis->checkForUpdate();
             if (newVersion > 0) {
