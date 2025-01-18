@@ -235,14 +235,15 @@ export function initData() {
 
 export function getTools() {
     try {
-        const result = stmtGetTools.all();
+        const result:any[] = stmtGetTools.all();
         return result.map(x => {
             const newTool = new Tool(x.id, x.name, x.mac);
-            newTool.users = stmtGetToolUsers.all(x.id).map(u => u.userId);
-            const logEntries = stmtGetToolLog.all(x.id);
+            const toolUsers:any[] = stmtGetToolUsers.all(x.id)
+            newTool.users = toolUsers.map(u => u.userId);
+            const logEntries:any[] = stmtGetToolLog.all(x.id);
             newTool.log = logEntries.map(l => new LogEntry(l.userId, l.timestamp, l.op, l.card));
             newTool.currentUserId = newTool.log.length > 0 && newTool.log[0].op === "in" ? newTool.log[0].userId : 0;
-            const utilResult = stmtGetToolUtil.get(x.id);
+            const utilResult:any = stmtGetToolUtil.get(x.id);
             newTool.utilization = utilResult.util;
             return newTool;
         });
@@ -265,8 +266,8 @@ export function getToolsUtilStats() {
 
 export function getUsers(): User[] {
     try {
-        const result = stmtGetUsers.all();
-        const map = result.map(x => new this.User(x.id, x.fullName, x.email, x.card, x.doorCard, x.isGroup, x.isGroup ? stmtGetGroupUsers.all(x.id).map(y => y.id) : []));
+        const result:any[] = stmtGetUsers.all();
+        const map = result.map(x => new this.User(x.id, x.fullName, x.email, x.card, x.doorCard, x.isGroup, x.isGroup ? (stmtGetGroupUsers.all(x.id) as any[]).map(y => y.id) : []));
         return map;
     } catch(e) {
         console.log('Error in getUsers: ' + e);
@@ -276,7 +277,7 @@ export function getUsers(): User[] {
 
 export function addTool(toolMac: string) {
     try {
-        const result = stmtAddTool.run(toolMac);
+        const result:any = stmtAddTool.run(toolMac);
         return true;
     } catch(e) {
         console.log('Error in addTool: ' + e);
@@ -286,7 +287,7 @@ export function addTool(toolMac: string) {
 
 export function deleteTool(toolId: number) {
     try {
-        const result = stmtDeleteTool.run(toolId);
+        const result:any = stmtDeleteTool.run(toolId);
         return true;
     } catch(e) {
         console.log('Error in deleteTool: ' + e);
@@ -296,7 +297,7 @@ export function deleteTool(toolId: number) {
 
 export function editTool(toolId: number, toolName: string) {
     try {
-        const result = stmtEditTool.run(toolName, toolId);
+        const result:any = stmtEditTool.run(toolName, toolId);
         return true;
     } catch(e) {
         console.log('Error in addTool: ' + e);
@@ -385,7 +386,7 @@ export function addLogEntry(toolId: number, userId: number, time:number, op: str
 
 export function getAdminPass() {
     try {
-        const result = stmtGetSetting.get('AdminPass');
+        const result:any = stmtGetSetting.get('AdminPass');
         if (result) {
             return result.Value;
         } else {
@@ -409,7 +410,7 @@ export function setAdminPass(newPass: string) {
 
 export function findDoorCardName(doorCard: string) {
     try {
-        const result = stmtDoorCardQuery.get(doorCard);
+        const result:any = stmtDoorCardQuery.get(doorCard);
         if (result) {
             if (result.card) {
                 return {error: "Toolcard already assigned"};
@@ -418,9 +419,9 @@ export function findDoorCardName(doorCard: string) {
             }
         } else {
             if (addUser("","","",doorCard,false,null)) {
-                const newUser = stmtDoorCardQuery.get(doorCard);
+                const newUser:any = stmtDoorCardQuery.get(doorCard);
                 if (newUser) {
-                    const group = stmtGetGroupId.get("Everyone");
+                    const group:any = stmtGetGroupId.get("Everyone");
                     if (group) {
                         stmtAddGroupMapEntry.run(group.id, newUser.id);
                     } else {
@@ -443,7 +444,7 @@ export function findDoorCardName(doorCard: string) {
 
 export function isToolCardRegistered(toolCard: string) {
     try {
-        const result = stmtIsToolCardRegistered.get(toolCard);
+        const result:any = stmtIsToolCardRegistered.get(toolCard);
         if (result && result.fullName) {
             return true;
         } else {
