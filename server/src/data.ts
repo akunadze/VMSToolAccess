@@ -413,7 +413,7 @@ export function getUsers(): User[] {
 
 export function addTool(toolMac: string) {
     try {
-        const result = stmtAddTool.run(toolMac);
+        const result:any = stmtAddTool.run(toolMac);
         return true;
     } catch(e) {
         console.log('Error in addTool: ' + e);
@@ -423,7 +423,7 @@ export function addTool(toolMac: string) {
 
 export function deleteTool(toolId: number) {
     try {
-        const result = stmtDeleteTool.run(toolId);
+        const result:any = stmtDeleteTool.run(toolId);
         return true;
     } catch(e) {
         console.log('Error in deleteTool: ' + e);
@@ -433,7 +433,7 @@ export function deleteTool(toolId: number) {
 
 export function editTool(toolId: number, toolName: string) {
     try {
-        const result = stmtEditTool.run(toolName, toolId);
+        const result:any = stmtEditTool.run(toolName, toolId);
         return true;
     } catch(e) {
         console.log('Error in addTool: ' + e);
