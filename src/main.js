@@ -182,6 +182,7 @@ let vueApp = new Vue({
       return (resp.status === 200 && !respJson.error);
     },
     async addUser(name, email, card, doorCard, members) {
+      console.log("addUser: " + name + ", " + email + ", " + card + ", " + doorCard);
       let resp = await fetch(`/api/user/add`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -191,6 +192,7 @@ let vueApp = new Vue({
       return (resp.status === 200 && !respJson.error);
     },
     async editUser(userId, name, email, card, doorCard, members) {
+      console.log("editUser: " + name + ", " + email + ", " + card + ", " + doorCard);
       let resp = await fetch(`/api/user/edit`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -216,6 +218,15 @@ let vueApp = new Vue({
       });
       let respJson = await resp.json();
       return (resp.status === 200 && respJson.error === null);
+    },
+    async setToolLockout(toolId, lockout) {
+      let resp = await fetch(`/api/tool/setlockout`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: toolId, islocked: lockout})
+      });
+      let respJson = await resp.json();
+      return (resp.status === 200 && !respJson.error);
     },
     refreshData() {
       refreshData();

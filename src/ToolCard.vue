@@ -16,6 +16,7 @@
             <span class="bg-white border rounded-right p-1 flex-fill">
               {{ tool.currentUserId ? "In use by " + this.$root.getUserFullName(tool.currentUserId) : "Idle" }}
             </span>
+            <b-button @click="toggleLockout">{{tool.isLocked ? "End Lockout" : "Lockout"}}</b-button>
           </div>
           <div class="m-2 p-0 d-flex">
             <span class="bg-light border rounded-left p-1 w-25">Users</span>
@@ -93,6 +94,9 @@ export default {
         console.log(err);
         this.$root.$data.shared.exitModal();
       })
+    },
+    toggleLockout() {
+      this.$root.setToolLockout(this.tool.id, !this.tool.isLocked);
     },
     onTitleHover(isHover) {
       this.showIcons = isHover;

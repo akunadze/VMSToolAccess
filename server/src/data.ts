@@ -25,6 +25,7 @@ var stmtDoorCardQuery: sqlite3.Statement;
 var stmtRegisterToolCard: sqlite3.Statement;
 var stmtIsToolCardRegistered: sqlite3.Statement;
 var stmtGetGroupId:  sqlite3.Statement;
+var stmtSetToolLockout:  sqlite3.Statement;
 
 interface ToolData {
     id: number;
@@ -126,11 +127,13 @@ export class Tool {
     mac: string;
     offline: boolean;
     utilization: number;
+    isLocked: boolean;
 
-    constructor(id: number, name: string, mac: string) {
+    constructor(id: number, name: string, mac: string, lockedout: number) {
         this.id = id;
         this.name = name;
         this.mac = mac;
+        this.isLocked = (lockedout === 1);
         this.users = [];
         this.log = [];
         this.currentUserId = 0;
@@ -211,7 +214,8 @@ export function initData() {
         CREATE TABLE IF NOT EXISTS Tools (
             id   INTEGER PRIMARY KEY ASC,
             name TEXT,
-            mac  TEXT  UNIQUE
+            mac  TEXT  UNIQUE,
+            lockedout INTEGER DEFAULT (0) 
         );
         
         
@@ -374,9 +378,10 @@ export function getTools() {
     try {
         const result = stmtGetTools.all() as ToolData[];
         return result.map(x => {
-            const newTool = new Tool(x.id, x.name, x.mac);
-            newTool.users = stmtGetToolUsers.all(x.id).map((u: ToolUserData) => u.userId);
-            const logEntries = stmtGetToolLog.all(x.id) as LogEntryData[];
+            const newTool = new Tool(x.id, x.name, x.mac, x.lockedout);
+            const toolUsers:any[] = stmtGetToolUsers.all(x.id)
+            newTool.users = toolUsers.map(u => u.userId);
+            const logEntries:any[] = stmtGetToolLog.all(x.id);
             newTool.log = logEntries.map(l => new LogEntry(l.userId, l.timestamp, l.op, l.card));
             newTool.currentUserId = newTool.log.length > 0 && newTool.log[0].op === "in" ? newTool.log[0].userId : 0;
             const utilResult = stmtGetToolUtil.get(x.id) as UtilizationData;
@@ -427,6 +432,16 @@ export function deleteTool(toolId: number) {
         return true;
     } catch(e) {
         console.log('Error in deleteTool: ' + e);
+        return false;
+    }
+}
+
+export function setToolLockout(toolId: number, isLocked: boolean) {
+    try {
+        const result:any = stmtSetToolLockout.run(isLocked ? 1 : 0, toolId);
+        return true;
+    } catch(e) {
+        console.log('Error in setToolLockout: ' + e);
         return false;
     }
 }
