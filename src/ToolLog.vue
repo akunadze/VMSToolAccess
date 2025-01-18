@@ -1,6 +1,14 @@
 <template>
-    <b-modal id="toolLogDlg" :title="title" @hidden="onHide" hide-footer>
-        <div class="" style="overflow-y:auto; height:30rem">
+    <b-modal id="toolLogDlg" :title="title" @hidden="onHide">
+      <template #modal-footer="{ close }">
+        <b-button size="sm" variant="outline-dark" class="mr-auto align-items-start" @click="onPrint">
+          <b-icon icon="printer"></b-icon>
+        </b-button>
+        <b-button size="sm" variant="outline-dark" class="ml-2" @click="close()">
+          Close
+        </b-button>
+      </template>
+      <div class="" style="overflow-y:auto; height:30rem">
         <b-list-group>
           <b-list-group-item v-for="entry in this.log" v-bind:key="entry.timestamp">
             <b-row>
@@ -18,7 +26,7 @@
             </b-row>
           </b-list-group-item>
         </b-list-group>
-        </div>
+      </div>
     </b-modal>
 </template>
 
@@ -53,6 +61,35 @@ export default {
     formatTimestamp(ts) {
       let dt = new Date(ts * 1000);
       return dt.toLocaleString();
+    },
+    onPrint() {
+      let toolName = this.tool.name;
+      let contents = [`<html><body><b>${toolName} log</b><table border="1px"><thead><tr><th></th><th>User</th><th>Timestamp</th></tr></thead><tbody>`];
+      this.log.forEach((x) => {
+        let op = "";
+        let color = "";
+
+        if (x.op === 'in') {
+          op = "=>";
+          color = "green";
+        } else if (x.op === 'out') {
+          op = "<=";
+          color = "yellow";
+        } else if (x.op === 'err') {
+          op = "!!";
+          color = "red";
+        }
+
+        let user = this.getUserFullName(x);
+        let timestamp = this.formatTimestamp(x.timestamp);
+
+        contents.push(`<tr><td style="background:${color}">${op}</td><td>${user}</td><td>${timestamp}</td></tr>`);
+      });
+      contents.push("</tbody></table></body></html>")
+
+      var WinPrint = window.open('', '', 'left=0,top=0,width=800,height=900,toolbar=0,scrollbars=0,status=0');
+      WinPrint.document.write(contents.join(""));
+      WinPrint.document.close();
     }
   },
   mounted() {
