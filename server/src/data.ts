@@ -25,6 +25,7 @@ var stmtDoorCardQuery: sqlite3.Statement;
 var stmtRegisterToolCard: sqlite3.Statement;
 var stmtIsToolCardRegistered: sqlite3.Statement;
 var stmtGetGroupId:  sqlite3.Statement;
+var stmtSetToolLockout:  sqlite3.Statement;
 
 function nullIfEmpty(x: string) {
     if (x) {
@@ -77,11 +78,13 @@ export class Tool {
     mac: string;
     offline: boolean;
     utilization: number;
+    isLocked: boolean;
 
-    constructor(id: number, name: string, mac: string) {
+    constructor(id: number, name: string, mac: string, lockedout: number) {
         this.id = id;
         this.name = name;
         this.mac = mac;
+        this.isLocked = (lockedout === 1);
         this.users = [];
         this.log = [];
         this.currentUserId = 0;
@@ -162,7 +165,8 @@ export function initData() {
         CREATE TABLE IF NOT EXISTS Tools (
             id   INTEGER PRIMARY KEY ASC,
             name TEXT,
-            mac  TEXT  UNIQUE
+            mac  TEXT  UNIQUE,
+            lockedout INTEGER DEFAULT (0) 
         );
         
         
@@ -202,7 +206,7 @@ export function initData() {
         PRAGMA foreign_keys = on;
         `);
 
-        stmtGetTools = db.prepare('SELECT id, name, mac FROM Tools');
+        stmtGetTools = db.prepare('SELECT id, name, mac, lockedout FROM Tools');
         stmtGetToolUsers = db.prepare('SELECT userId FROM Permissions WHERE toolId = ?');
         stmtGetToolLog = db.prepare('SELECT userId, op, timestamp, card FROM AccessLog WHERE toolId = ? ORDER BY timestamp DESC');
         stmtGetUsers = db.prepare('SELECT id, fullName, email, card, doorCard, isGroup FROM Users ORDER BY isGroup DESC, fullName');
@@ -210,6 +214,7 @@ export function initData() {
         stmtAddTool = db.prepare('INSERT INTO Tools(mac) VALUES(?)');
         stmtDeleteTool = db.prepare('DELETE FROM Tools WHERE id = ?');
         stmtEditTool = db.prepare('UPDATE Tools SET name = ? WHERE id = ?');
+        stmtSetToolLockout = db.prepare('UPDATE Tools SET lockedout = ? WHERE id = ?');
         stmtAddPermission = db.prepare('INSERT INTO Permissions (toolId, userId) VALUES (?,?)');
         stmtAddUser = db.prepare('INSERT INTO Users(fullName, email, card, doorCard, isGroup) VALUES(IFNULL(?, \'New User \' || (select max(id) + 1 from Users)),?,?,?,?)');
         stmtDeleteAllPermissions = db.prepare('DELETE FROM Permissions WHERE toolId = ?');
@@ -237,7 +242,7 @@ export function getTools() {
     try {
         const result:any[] = stmtGetTools.all();
         return result.map(x => {
-            const newTool = new Tool(x.id, x.name, x.mac);
+            const newTool = new Tool(x.id, x.name, x.mac, x.lockedout);
             const toolUsers:any[] = stmtGetToolUsers.all(x.id)
             newTool.users = toolUsers.map(u => u.userId);
             const logEntries:any[] = stmtGetToolLog.all(x.id);
@@ -291,6 +296,16 @@ export function deleteTool(toolId: number) {
         return true;
     } catch(e) {
         console.log('Error in deleteTool: ' + e);
+        return false;
+    }
+}
+
+export function setToolLockout(toolId: number, isLocked: boolean) {
+    try {
+        const result:any = stmtSetToolLockout.run(isLocked ? 1 : 0, toolId);
+        return true;
+    } catch(e) {
+        console.log('Error in setToolLockout: ' + e);
         return false;
     }
 }

@@ -126,24 +126,26 @@ app.post('/api/hello', (req, res) => {
   const existingTool = tools.find(x => x.mac === req.body.mac);
   if (existingTool) {
     response.userCards = [];
-    existingTool.users.forEach(x => {
-      const user = users.find(u => u.id == x);
-      if (user) {
-        if (user.group) {
-          for (const member of user.members) {
-            const memberUser = users.find(u => u.id == member);
-            if (memberUser && memberUser.card != "") {
-              response.userCards.push(memberUser.card);
+    if (!existingTool.isLocked) {
+      existingTool.users.forEach(x => {
+        const user = users.find(u => u.id == x);
+        if (user) {
+          if (user.group) {
+            for (const member of user.members) {
+              const memberUser = users.find(u => u.id == member);
+              if (memberUser && memberUser.card != "") {
+                response.userCards.push(memberUser.card);
+              }
+            }
+          } else {
+            if (user.card) {
+              response.userCards.push(user.card);
             }
           }
-        } else {
-          if (user.card) {
-            response.userCards.push(user.card);
-          }
         }
-      }
-    });
-
+      });
+    }
+    
     class log_entry {
       card:string;
       op:string;
@@ -241,6 +243,38 @@ app.post('/api/tool/delete', (req, res) => {
 
   sendUpdateNotification();
 });
+
+app.post('/api/tool/setlockout', (req, res) => {
+  if (!req.session.loggedIn) {
+    res.status(401).json(Response.mkErr("Not logged in"));
+    return;
+  }
+
+  console.log('api/tool/setlockout called.')
+  let tools: Tool[] = data.getTools();
+  
+  const toolId = req.body.id;
+  const isLocked = req.body.islocked;
+  
+  if (!tools.find(x => x.id === toolId)) {
+    res.status(400).json(Response.mkErr("Tool not found"));
+    return;
+  }
+  
+  if (!(isLocked === true || isLocked === false)) {
+    res.status(400).json(Response.mkErr("Malformed request"));
+    return;
+  }
+
+  if (data.setToolLockout(toolId, isLocked)) {
+    res.json(Response.mkOk());
+  } else {
+    res.json(Response.mkErr("Internal error"));
+  }
+
+  sendUpdateNotification();
+});
+
 
 app.post('/api/tool/edit', (req, res) => {
   if (!req.session.loggedIn) {
