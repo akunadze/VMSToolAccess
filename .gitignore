@@ -37,3 +37,4 @@ server/src/config.js
 server/src/config.js.map
 server/src/mfrc522.js
 server/src/mfrc522.js.map
+server/data/toolaccess.db
