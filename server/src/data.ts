@@ -26,6 +26,55 @@ var stmtRegisterToolCard: sqlite3.Statement;
 var stmtIsToolCardRegistered: sqlite3.Statement;
 var stmtGetGroupId:  sqlite3.Statement;
 
+interface ToolData {
+    id: number;
+    name: string;
+    mac: string;
+}
+
+interface ToolUserData {
+    userId: number;
+}
+
+interface LogEntryData {
+    userId: number;
+    timestamp: string;
+    op: string;
+    card: string;
+}
+
+interface UtilizationData {
+    util: number;
+}
+
+interface UserData {
+    id: number;
+    fullName: string;
+    email: string;
+    card: string;
+    doorCard: string;
+    isGroup: boolean;
+}
+
+interface SettingData {
+    Key: string;
+    Value: string;
+}
+
+interface DoorCardData {
+    id: number;
+    fullName: string;
+    card: string;
+}
+
+interface GroupIdData {
+    id: number;
+}
+
+interface ToolCardRegisteredData {
+    fullName: string;
+}
+
 function nullIfEmpty(x: string) {
     if (x) {
         return x;
@@ -56,11 +105,11 @@ export class User {
       
 export class LogEntry {
     userId: number;
-    timestamp: number;
+    timestamp: string;
     op: string;
     card: string;
 
-    constructor(userId: number, timestamp: number, op: string, card: string) {
+    constructor(userId: number, timestamp: string, op: string, card: string) {
         this.userId = userId;
         this.timestamp = timestamp;
         this.op = op;
@@ -296,7 +345,6 @@ export function initData() {
             FROM lengths
         `);
         
-        //stmtGetAllToolsUtil = db.prepare("with lengths as (select *, IIF(op = 'out' AND (LAG(op) OVER ()) = 'in' AND userId = (LAG(userId) OVER ()), timestamp - LAG(timestamp, 1, 0) OVER (), 0) as length from AccessLog ORDER BY timestamp) select toolId, name, ROUND((SUM(length) * (7*24.0)) / (strftime('%s','now') - MIN(timestamp)), 1) as HoursPerWeek from lengths JOIN tools ON toolId = id GROUP BY toolId");
         stmtGetAllToolsUtil = db.prepare(`
         WITH lengths AS (
             SELECT *,
@@ -324,14 +372,14 @@ export function initData() {
 
 export function getTools() {
     try {
-        const result = stmtGetTools.all();
+        const result = stmtGetTools.all() as ToolData[];
         return result.map(x => {
             const newTool = new Tool(x.id, x.name, x.mac);
-            newTool.users = stmtGetToolUsers.all(x.id).map(u => u.userId);
-            const logEntries = stmtGetToolLog.all(x.id);
+            newTool.users = stmtGetToolUsers.all(x.id).map((u: ToolUserData) => u.userId);
+            const logEntries = stmtGetToolLog.all(x.id) as LogEntryData[];
             newTool.log = logEntries.map(l => new LogEntry(l.userId, l.timestamp, l.op, l.card));
             newTool.currentUserId = newTool.log.length > 0 && newTool.log[0].op === "in" ? newTool.log[0].userId : 0;
-            const utilResult = stmtGetToolUtil.get(x.id);
+            const utilResult = stmtGetToolUtil.get(x.id) as UtilizationData;
             newTool.utilization = utilResult.util;
             return newTool;
         });
@@ -354,8 +402,8 @@ export function getToolsUtilStats() {
 
 export function getUsers(): User[] {
     try {
-        const result = stmtGetUsers.all();
-        const map = result.map(x => new this.User(x.id, x.fullName, x.email, x.card, x.doorCard, x.isGroup, x.isGroup ? stmtGetGroupUsers.all(x.id).map(y => y.id) : []));
+        const result = stmtGetUsers.all() as UserData[];
+        const map = result.map(x => new this.User(x.id, x.fullName, x.email, x.card, x.doorCard, x.isGroup, x.isGroup ? stmtGetGroupUsers.all(x.id).map((y:GroupIdData) => y.id) : []));
         return map;
     } catch(e) {
         console.log('Error in getUsers: ' + e);
@@ -474,7 +522,7 @@ export function addLogEntry(toolId: number, userId: number, time:number, op: str
 
 export function getAdminPass() {
     try {
-        const result = stmtGetSetting.get('AdminPass');
+        const result = stmtGetSetting.get('AdminPass') as SettingData;
         if (result) {
             return result.Value;
         } else {
@@ -498,7 +546,7 @@ export function setAdminPass(newPass: string) {
 
 export function findDoorCardName(doorCard: string) {
     try {
-        const result = stmtDoorCardQuery.get(doorCard);
+        const result = stmtDoorCardQuery.get(doorCard) as DoorCardData;
         if (result) {
             if (result.card) {
                 return {error: "Toolcard already assigned"};
@@ -507,9 +555,9 @@ export function findDoorCardName(doorCard: string) {
             }
         } else {
             if (addUser("","","",doorCard,false,null)) {
-                const newUser = stmtDoorCardQuery.get(doorCard);
+                const newUser = stmtDoorCardQuery.get(doorCard) as DoorCardData;
                 if (newUser) {
-                    const group = stmtGetGroupId.get("Everyone");
+                    const group = stmtGetGroupId.get("Everyone") as GroupIdData;
                     if (group) {
                         stmtAddGroupMapEntry.run(group.id, newUser.id);
                     } else {
@@ -532,7 +580,7 @@ export function findDoorCardName(doorCard: string) {
 
 export function isToolCardRegistered(toolCard: string) {
     try {
-        const result = stmtIsToolCardRegistered.get(toolCard);
+        const result = stmtIsToolCardRegistered.get(toolCard) as ToolCardRegisteredData;
         if (result && result.fullName) {
             return true;
         } else {
