@@ -249,7 +249,7 @@ export default {
     onSubmitFindUserDlg() {
         let foundUser = false;
         for (const x of this.$root.$data.shared.getUsers()) {
-            if (x.card == this.findUserToolCard) {
+            if (x.card !== null && x.card.localeCompare(this.findUserToolCard.toLowerCase(), 'en', {sensitivity: 'base'}) === 0) {
                 foundUser = true;
                 this.selectUser(x);
                 break;
@@ -261,7 +261,6 @@ export default {
                 this.$bvModal.hide('findUserDlg')
             })
         } else {
-            //this.shakeDlg = false;
             this.shakeDlg = true;
             setTimeout(() => {
                 this.shakeDlg = false;
