@@ -194,26 +194,113 @@ function initData() {
         COMMIT TRANSACTION;
         PRAGMA foreign_keys = on;
         `);
-        stmtGetTools = db.prepare('SELECT id, name, mac FROM Tools');
-        stmtGetToolUsers = db.prepare('SELECT userId FROM Permissions WHERE toolId = ?');
-        stmtGetToolLog = db.prepare('SELECT userId, op, timestamp, card FROM AccessLog WHERE toolId = ? ORDER BY timestamp DESC');
-        stmtGetUsers = db.prepare('SELECT id, fullName, email, card, doorCard, isGroup FROM Users ORDER BY isGroup DESC, fullName');
-        stmtGetGroupUsers = db.prepare('SELECT id FROM Users INNER JOIN UserGroupMap ON Users.id = UserGroupMap.userId WHERE UserGroupMap.groupId = ?');
-        stmtAddTool = db.prepare('INSERT INTO Tools(mac) VALUES(?)');
-        stmtDeleteTool = db.prepare('DELETE FROM Tools WHERE id = ?');
-        stmtEditTool = db.prepare('UPDATE Tools SET name = ? WHERE id = ?');
-        stmtAddPermission = db.prepare('INSERT INTO Permissions (toolId, userId) VALUES (?,?)');
-        stmtAddUser = db.prepare('INSERT INTO Users(fullName, email, card, doorCard, isGroup) VALUES(IFNULL(?, \'New User \' || (select max(id) + 1 from Users)),?,?,?,?)');
-        stmtDeleteAllPermissions = db.prepare('DELETE FROM Permissions WHERE toolId = ?');
-        stmtAddLogEntry = db.prepare('INSERT INTO AccessLog (toolId, userId, timestamp, op, card) VALUES (?,?,?,?,?)');
-        stmtEditUser = db.prepare('UPDATE Users SET fullName = ?, email = ?, card = ?, doorCard = ? WHERE id = ?');
-        stmtAddGroupMapEntry = db.prepare('INSERT INTO UserGroupMap(groupId, userId) VALUES(?,?)');
-        stmtDeleteGroupMap = db.prepare('DELETE FROM UserGroupMap WHERE groupId = ?');
-        stmtDeleteUser = db.prepare('DELETE FROM Users WHERE id = ?');
-        stmtGetSetting = db.prepare('SELECT Value FROM Settings WHERE Key = ?');
-        stmtPutSetting = db.prepare('REPLACE INTO Settings(Key, Value) VALUES (?,?)');
-        stmtGetToolUtil = db.prepare('with lengths as (select *, IIF(op = \'out\' AND (LAG(op) OVER ()) = \'in\' AND userId = (LAG(userId) OVER ()), timestamp - LAG(timestamp, 1, 0) OVER (), 0) as length from AccessLog WHERE toolId = ? ORDER BY timestamp) select ROUND(SUM(length) * 100.0 / (strftime(\'%s\',\'now\') - MIN(timestamp)), 2) as util from lengths');
-        stmtGetAllToolsUtil = db.prepare("with lengths as (select *, IIF(op = 'out' AND (LAG(op) OVER ()) = 'in' AND userId = (LAG(userId) OVER ()), timestamp - LAG(timestamp, 1, 0) OVER (), 0) as length from AccessLog ORDER BY timestamp) select toolId, name, ROUND((SUM(length) * (7*24.0)) / (strftime('%s','now') - MIN(timestamp)), 1) as HoursPerWeek from lengths JOIN tools ON toolId = id GROUP BY toolId");
+        stmtGetTools = db.prepare(`
+            SELECT id, name, mac 
+            FROM Tools
+        `);
+        stmtGetToolUsers = db.prepare(`
+            SELECT userId 
+            FROM Permissions 
+            WHERE toolId = ?
+        `);
+        stmtGetToolLog = db.prepare(`
+            SELECT userId, op, timestamp, card 
+            FROM AccessLog 
+            WHERE toolId = ? 
+            ORDER BY timestamp DESC
+        `);
+        stmtGetUsers = db.prepare(`
+            SELECT id, fullName, email, card, doorCard, isGroup 
+            FROM Users 
+            ORDER BY isGroup DESC, fullName
+        `);
+        stmtGetGroupUsers = db.prepare(`
+            SELECT id 
+            FROM Users 
+            INNER JOIN UserGroupMap ON Users.id = UserGroupMap.userId 
+            WHERE UserGroupMap.groupId = ?
+        `);
+        stmtAddTool = db.prepare(`
+            INSERT INTO Tools(mac) 
+            VALUES(?)
+        `);
+        stmtDeleteTool = db.prepare(`
+            DELETE FROM Tools 
+            WHERE id = ?
+        `);
+        stmtEditTool = db.prepare(`
+            UPDATE Tools 
+            SET name = ? 
+            WHERE id = ?
+        `);
+        stmtAddPermission = db.prepare(`
+            INSERT INTO Permissions (toolId, userId) 
+            VALUES (?,?)
+        `);
+        stmtAddUser = db.prepare(`
+            INSERT INTO Users(fullName, email, card, doorCard, isGroup) 
+            VALUES(IFNULL(?, 'New User ' || (select max(id) + 1 from Users)),?,?,?,?)
+        `);
+        stmtDeleteAllPermissions = db.prepare(`
+            DELETE FROM Permissions 
+            WHERE toolId = ?
+        `);
+        stmtAddLogEntry = db.prepare(`
+            INSERT INTO AccessLog (toolId, userId, timestamp, op, card) 
+            VALUES (?,?,?,?,?)
+        `);
+        stmtEditUser = db.prepare(`
+            UPDATE Users 
+            SET fullName = ?, email = ?, card = ?, doorCard = ? 
+            WHERE id = ?
+        `);
+        stmtAddGroupMapEntry = db.prepare(`
+            INSERT INTO UserGroupMap(groupId, userId) 
+            VALUES(?,?)
+        `);
+        stmtDeleteGroupMap = db.prepare(`
+            DELETE FROM UserGroupMap 
+            WHERE groupId = ?
+        `);
+        stmtDeleteUser = db.prepare(`
+            DELETE FROM Users 
+            WHERE id = ?
+        `);
+        stmtGetSetting = db.prepare(`
+            SELECT Value 
+            FROM Settings 
+            WHERE Key = ?
+        `);
+        stmtPutSetting = db.prepare(`
+            REPLACE INTO Settings(Key, Value) 
+            VALUES (?,?)
+        `);
+        stmtGetToolUtil = db.prepare(`
+            WITH lengths AS (
+            SELECT *, 
+                   IIF(op = 'out' AND (LAG(op) OVER ()) = 'in' AND userId = (LAG(userId) OVER ()), 
+                   timestamp - LAG(timestamp, 1, 0) OVER (), 0) AS length 
+            FROM AccessLog 
+            WHERE toolId = ? 
+            ORDER BY timestamp
+            ) 
+            SELECT ROUND(SUM(length) * 100.0 / (strftime('%s','now') - MIN(timestamp)), 2) AS util 
+            FROM lengths
+        `);
+        stmtGetAllToolsUtil = db.prepare(`
+        WITH lengths AS (
+            SELECT *,
+                   IIF(op = 'out' AND (LAG(op) OVER ()) = 'in' AND userId = (LAG(userId) OVER ()), 
+                       timestamp - LAG(timestamp, 1, 0) OVER (), 0) AS length
+            FROM AccessLog
+            ORDER BY timestamp
+        )
+        SELECT toolId, name, 
+               ROUND((SUM(length) * (7*24.0)) / (strftime('%s','now') - MIN(timestamp)), 1) AS HoursPerWeek
+        FROM lengths
+        JOIN tools ON toolId = id
+        GROUP BY toolId;
+        `);
         stmtDoorCardQuery = db.prepare("SELECT id, fullName, card FROM Users WHERE doorCard = ?");
         stmtRegisterToolCard = db.prepare("UPDATE Users SET card = ? WHERE doorCard = ? AND card IS NULL");
         stmtIsToolCardRegistered = db.prepare("SELECT fullName FROM Users WHERE card = ?");
@@ -228,7 +315,7 @@ function getTools() {
         const result = stmtGetTools.all();
         return result.map(x => {
             const newTool = new Tool(x.id, x.name, x.mac);
-            newTool.users = stmtGetToolUsers.all(x.id).map(u => u.userId);
+            newTool.users = stmtGetToolUsers.all(x.id).map((u) => u.userId);
             const logEntries = stmtGetToolLog.all(x.id);
             newTool.log = logEntries.map(l => new LogEntry(l.userId, l.timestamp, l.op, l.card));
             newTool.currentUserId = newTool.log.length > 0 && newTool.log[0].op === "in" ? newTool.log[0].userId : 0;
@@ -255,7 +342,7 @@ function getToolsUtilStats() {
 function getUsers() {
     try {
         const result = stmtGetUsers.all();
-        const map = result.map(x => new this.User(x.id, x.fullName, x.email, x.card, x.doorCard, x.isGroup, x.isGroup ? stmtGetGroupUsers.all(x.id).map(y => y.id) : []));
+        const map = result.map(x => new this.User(x.id, x.fullName, x.email, x.card, x.doorCard, x.isGroup, x.isGroup ? stmtGetGroupUsers.all(x.id).map((y) => y.id) : []));
         return map;
     }
     catch (e) {
