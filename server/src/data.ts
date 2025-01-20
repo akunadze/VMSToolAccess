@@ -31,6 +31,7 @@ interface ToolData {
     id: number;
     name: string;
     mac: string;
+    lockedout: number;
 }
 
 interface ToolUserData {
@@ -39,7 +40,7 @@ interface ToolUserData {
 
 interface LogEntryData {
     userId: number;
-    timestamp: string;
+    timestamp: number;
     op: string;
     card: string;
 }
@@ -106,11 +107,11 @@ export class User {
       
 export class LogEntry {
     userId: number;
-    timestamp: string;
+    timestamp: number;
     op: string;
     card: string;
 
-    constructor(userId: number, timestamp: string, op: string, card: string) {
+    constructor(userId: number, timestamp: number, op: string, card: string) {
         this.userId = userId;
         this.timestamp = timestamp;
         this.op = op;
@@ -379,9 +380,8 @@ export function getTools() {
         const result = stmtGetTools.all() as ToolData[];
         return result.map(x => {
             const newTool = new Tool(x.id, x.name, x.mac, x.lockedout);
-            const toolUsers:any[] = stmtGetToolUsers.all(x.id)
-            newTool.users = toolUsers.map(u => u.userId);
-            const logEntries:any[] = stmtGetToolLog.all(x.id);
+            newTool.users = stmtGetToolUsers.all(x.id).map((u: ToolUserData) => u.userId);
+            const logEntries = stmtGetToolLog.all(x.id) as LogEntryData[];
             newTool.log = logEntries.map(l => new LogEntry(l.userId, l.timestamp, l.op, l.card));
             newTool.currentUserId = newTool.log.length > 0 && newTool.log[0].op === "in" ? newTool.log[0].userId : 0;
             const utilResult = stmtGetToolUtil.get(x.id) as UtilizationData;
@@ -418,7 +418,7 @@ export function getUsers(): User[] {
 
 export function addTool(toolMac: string) {
     try {
-        const result:any = stmtAddTool.run(toolMac);
+        const result = stmtAddTool.run(toolMac);
         return true;
     } catch(e) {
         console.log('Error in addTool: ' + e);
@@ -428,7 +428,7 @@ export function addTool(toolMac: string) {
 
 export function deleteTool(toolId: number) {
     try {
-        const result:any = stmtDeleteTool.run(toolId);
+        const result = stmtDeleteTool.run(toolId);
         return true;
     } catch(e) {
         console.log('Error in deleteTool: ' + e);
@@ -438,7 +438,7 @@ export function deleteTool(toolId: number) {
 
 export function setToolLockout(toolId: number, isLocked: boolean) {
     try {
-        const result:any = stmtSetToolLockout.run(isLocked ? 1 : 0, toolId);
+        const result = stmtSetToolLockout.run(isLocked ? 1 : 0, toolId);
         return true;
     } catch(e) {
         console.log('Error in setToolLockout: ' + e);
@@ -448,7 +448,7 @@ export function setToolLockout(toolId: number, isLocked: boolean) {
 
 export function editTool(toolId: number, toolName: string) {
     try {
-        const result:any = stmtEditTool.run(toolName, toolId);
+        const result = stmtEditTool.run(toolName, toolId);
         return true;
     } catch(e) {
         console.log('Error in addTool: ' + e);
@@ -620,4 +620,3 @@ export function registerToolCard(doorCard: string, toolCard: string) {
         return false;
     }
 }
-
