@@ -257,7 +257,7 @@ export function initData() {
         `);
 
         stmtGetTools = db.prepare(`
-            SELECT id, name, mac 
+            SELECT id, name, mac, lockedout 
             FROM Tools
         `);
         stmtGetToolUsers = db.prepare(`
