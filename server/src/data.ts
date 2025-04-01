@@ -370,6 +370,7 @@ export function initData() {
         stmtRegisterToolCard = db.prepare("UPDATE Users SET card = ? WHERE doorCard = ? AND card IS NULL");
         stmtIsToolCardRegistered = db.prepare("SELECT fullName FROM Users WHERE card = ?");
         stmtGetGroupId = db.prepare("SELECT id FROM Users WHERE fullName = ?");
+        stmtSetToolLockout = db.prepare("UPDATE tools SET lockedout = ? WHERE id = ?");
     } catch(e) {
         console.log('Error in initData: ' + e);
     }
