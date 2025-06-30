@@ -20,6 +20,7 @@
 #include "esp_log.h"
 #include "esp_heap_trace.h"
 #include "nvs_flash.h"
+#include "SpindleTime.h"
 //#include "Syslog.h"
 
 #include "WS2812.h"
@@ -142,17 +143,18 @@ void lightShowTask(void *pvParam) {
     }
 }
 
-void saveActiveCard(const char *card) {
+void saveActiveCardAndSpindleTime(const char *card, uint32_t spindleTime) {
     nvs_handle_t hNvs;
     ESP_ERROR_CHECK(nvs_open("config", NVS_READWRITE, &hNvs));
 
     ESP_ERROR_CHECK(nvs_set_str(hNvs, "activeCard", card));
     ESP_ERROR_CHECK(nvs_set_i64(hNvs, "activeCardTime", time(NULL)));
+    ESP_ERROR_CHECK(nvs_set_u32(hNvs, "spindleTime", spindleTime));
 
     nvs_close(hNvs);
 }
 
-bool getActiveCard(char *cardBuffer, size_t bufferSize, time_t &timestamp) {
+bool getActiveCardAndSpindleTime(char *cardBuffer, size_t bufferSize, time_t &timestamp, uint32_t &spindleTime) {
     nvs_handle_t hNvs;
     ESP_ERROR_CHECK(nvs_open("config", NVS_READWRITE, &hNvs));
 
@@ -162,6 +164,7 @@ bool getActiveCard(char *cardBuffer, size_t bufferSize, time_t &timestamp) {
         if (strlen(cardBuffer) > 0 &&
             nvs_get_i64(hNvs, "activeCardTime", (int64_t *)&timestamp) == ESP_OK) 
         {
+            ESP_ERROR_CHECK(nvs_get_u32(hNvs, "spindleTime", &spindleTime));
             bFound = true;
         }
     }
@@ -206,11 +209,17 @@ void app_main(void)
 
     char savedCard[64];
     time_t savedTime;
-    if (getActiveCard(savedCard, sizeof(savedCard), savedTime)) {
+    uint32_t savedSpindleTime;
+    if (getActiveCardAndSpindleTime(savedCard, sizeof(savedCard), savedTime, savedSpindleTime)) {
         ESP_LOGI(TAG, "Sending a tardy logout...");
-        api.addLog(savedCard, LogEntry::LogOut, savedTime);
-        saveActiveCard("");
+        api.addLog(savedCard, LogEntry::LogOut, savedTime, savedSpindleTime);
+        saveActiveCardAndSpindleTime("", 0);
     }
+
+    gpio_install_isr_service(0);
+
+    SpindleTime spindleTime;
+    spindleTime.init();
 
     while (true) {
         bStopLightShow = false;
@@ -239,6 +248,9 @@ void app_main(void)
                 ESP_LOGW(TAG, "User authorized");
                 bAuthorized = true;
                 api.addLog(currentCard, LogEntry::LogIn);
+
+                spindleTime.resetTime();
+                spindleTime.setRecord(true);
             } else {
                 leds.setPixel(0, 255, 0, 0);
                 leds.setPixel(1, 255, 0, 0);
@@ -248,20 +260,22 @@ void app_main(void)
                 bAuthorized = false;
                 api.addLog(currentCard, LogEntry::Error);
             }
-
+            
             setAccess(bAuthorized);
 
             while (isCardStillThere()) {
                 if (bAuthorized) {
-                    saveActiveCard(currentCard);
+                    spindleTime.updateTime();
+                    saveActiveCardAndSpindleTime(currentCard, spindleTime.getTime());
                 }
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
             if (bAuthorized) {
+                spindleTime.setRecord(false);
                 setAccess(false);
-                api.addLog(currentCard, LogEntry::LogOut);
-                saveActiveCard("");
+                api.addLog(currentCard, LogEntry::LogOut, time(NULL), spindleTime.getTime());
+                saveActiveCardAndSpindleTime("", 0);
             }
             
             currentCard[0] = 0;

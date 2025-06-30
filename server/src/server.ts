@@ -47,6 +47,10 @@ if (!adminPass) {
   adminPass = bcrypt.hashSync(config.DEFAULT_ADMIN_PASS, saltRounds);
 }
 
+function isAuthorized(req:any) {
+  return req.session.loggedIn;
+}
+
 app.post('/api/login', (req,res) => {
   const user = req.body.user;
   const pass = req.body.password;
@@ -67,7 +71,7 @@ app.post('/api/login', (req,res) => {
 });
 
 app.post('/api/changePassword', (req,res) => {
-  if (!req.session.loggedIn) {
+  if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
     return;
   }
@@ -150,6 +154,7 @@ app.post('/api/hello', (req, res) => {
       card:string;
       op:string;
       time:number;
+      spindleTime:number;
     }
 
     const logs:log_entry[] = req.body.logs;
@@ -157,14 +162,14 @@ app.post('/api/hello', (req, res) => {
       const user = users.find(x => x.card === log.card);
 
       if (log.op === "err") {
-        data.addLogEntry(existingTool.id, user ? user.id : null, log.time, log.op, log.card);
+        data.addLogEntry(existingTool.id, user ? user.id : null, log.time, log.op, log.card, 0);
       } else if (log.op === "in" || log.op === "out") {
         if (!user) {
           console.log("Can't find user with card " + log.card);
           continue;
         }
 
-        data.addLogEntry(existingTool.id, user.id, log.time, log.op, null);
+        data.addLogEntry(existingTool.id, user.id, log.time, log.op, null, log.spindleTime);
       }
     }
 
@@ -180,7 +185,7 @@ app.post('/api/hello', (req, res) => {
 });
 
 app.get('/api/tools/utilstats', (req, res) => {
-  if (!req.session.loggedIn) {
+  if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
     return;
   }
@@ -192,7 +197,7 @@ app.get('/api/tools/utilstats', (req, res) => {
 });
 
 app.get('/api/users', (req, res) => {
-  if (!req.session.loggedIn) {
+  if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
     return;
   }
@@ -204,7 +209,7 @@ app.get('/api/users', (req, res) => {
 });
 
 app.get('/api/tools', (req, res) => {
-  if (!req.session.loggedIn) {
+  if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
     return;
   }
@@ -220,7 +225,7 @@ app.get('/api/tools', (req, res) => {
 });
 
 app.post('/api/tool/delete', (req, res) => {
-  if (!req.session.loggedIn) {
+  if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
     return;
   }
@@ -245,7 +250,7 @@ app.post('/api/tool/delete', (req, res) => {
 });
 
 app.post('/api/tool/setlockout', (req, res) => {
-  if (!req.session.loggedIn) {
+  if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
     return;
   }
@@ -277,7 +282,7 @@ app.post('/api/tool/setlockout', (req, res) => {
 
 
 app.post('/api/tool/edit', (req, res) => {
-  if (!req.session.loggedIn) {
+  if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
     return;
   }
@@ -316,7 +321,7 @@ app.post('/api/tool/edit', (req, res) => {
 });
 
 app.post('/api/user/add', (req, res) => {
-  if (!req.session.loggedIn) {
+  if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
     return;
   }
@@ -345,7 +350,7 @@ app.post('/api/user/add', (req, res) => {
 });
 
 app.post('/api/user/edit', (req, res) => {
-  if (!req.session.loggedIn) {
+  if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
     return;
   }
@@ -384,7 +389,7 @@ app.post('/api/user/edit', (req, res) => {
 });
 
 app.post('/api/user/delete', (req, res) => {
-  if (!req.session.loggedIn) {
+  if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
     return;
   }

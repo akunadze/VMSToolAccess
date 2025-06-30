@@ -18,7 +18,7 @@
                 <b-icon icon="exclamation-circle-fill" variant="danger" v-if="entry.op === 'err'" />
               </b-col>
               <b-col cols="4">
-                {{getUserFullName(entry)}}
+                {{getUserFullName(entry)}} {{getSpindleTimeText(entry)}}
               </b-col>
               <b-col>
                 {{formatTimestamp(entry.timestamp)}}
@@ -58,13 +58,20 @@ export default {
     getUserFullName(entry) {
       return this.$root.getLogEntryDisplayName(entry);
     },
+    getSpindleTimeText(entry) {
+      if (entry.op === 'out' && entry.spindleTime > 0) {
+        return '(' + this.$root.formatSeconds(entry.spindleTime) + ')';
+      }
+
+      return '';
+    },
     formatTimestamp(ts) {
       let dt = new Date(ts * 1000);
       return dt.toLocaleString();
     },
     onPrint() {
       let toolName = this.tool.name;
-      let contents = [`<html><body><b>${toolName} log</b><table border="1px"><thead><tr><th></th><th>User</th><th>Timestamp</th></tr></thead><tbody>`];
+      let contents = [`<html><body><b>${toolName} log</b><table border="1px"><thead><tr><th></th><th>User</th><th>Spindle Time</th><th>Timestamp</th></tr></thead><tbody>`];
       this.log.forEach((x) => {
         let op = "";
         let color = "";
@@ -82,8 +89,9 @@ export default {
 
         let user = this.getUserFullName(x);
         let timestamp = this.formatTimestamp(x.timestamp);
+        let spindleTime = this.getSpindleTimeText(x);
 
-        contents.push(`<tr><td style="background:${color}">${op}</td><td>${user}</td><td>${timestamp}</td></tr>`);
+        contents.push(`<tr><td style="background:${color}">${op}</td><td>${user}</td><td>${spindleTime}</td><td>${timestamp}</td></tr>`);
       });
       contents.push("</tbody></table></body></html>")
 

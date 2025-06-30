@@ -32,6 +32,7 @@ interface ToolData {
     name: string;
     mac: string;
     lockedout: number;
+    spindleTime: number;
 }
 
 interface ToolUserData {
@@ -43,6 +44,7 @@ interface LogEntryData {
     timestamp: number;
     op: string;
     card: string;
+    spindleTime: number;
 }
 
 interface UtilizationData {
@@ -110,12 +112,14 @@ export class LogEntry {
     timestamp: number;
     op: string;
     card: string;
+    spindleTime: number;
 
-    constructor(userId: number, timestamp: number, op: string, card: string) {
+    constructor(userId: number, timestamp: number, op: string, card: string, spindleTime: number) {
         this.userId = userId;
         this.timestamp = timestamp;
         this.op = op;
         this.card = card;
+        this.spindleTime = spindleTime;
     }
 }
 
@@ -129,8 +133,9 @@ export class Tool {
     offline: boolean;
     utilization: number;
     isLocked: boolean;
+    spindleTime: number;
 
-    constructor(id: number, name: string, mac: string, lockedout: number) {
+    constructor(id: number, name: string, mac: string, lockedout: number, spindleTime: number) {
         this.id = id;
         this.name = name;
         this.mac = mac;
@@ -140,6 +145,7 @@ export class Tool {
         this.currentUserId = 0;
         this.offline = true;
         this.utilization = 0;
+        this.spindleTime = spindleTime;
     }
 }
 
@@ -183,12 +189,12 @@ export function initData() {
                                                     ON UPDATE CASCADE,
             userId    INTEGER REFERENCES Users (id) ON DELETE CASCADE
                                                     ON UPDATE CASCADE,
-            op        TEXT  NOT NULL,
+            op        STRING  NOT NULL,
             timestamp INTEGER DEFAULT (strftime('%s', 'now') ),
-            card      TEXT
+            card      STRING,
+            spindleTime INTEGER DEFAULT (0)
         );
-        
-        
+
         -- Table: Permissions
         CREATE TABLE IF NOT EXISTS Permissions (
             toolId INTEGER REFERENCES Tools (id) ON DELETE CASCADE
@@ -205,17 +211,17 @@ export function initData() {
         
         -- Table: Settings
         CREATE TABLE IF NOT EXISTS Settings (
-            [Key] TEXT NOT NULL
+            [Key] STRING NOT NULL
                          PRIMARY KEY,
-            Value TEXT NOT NULL
+            Value STRING NOT NULL
         );
         
         
         -- Table: Tools
         CREATE TABLE IF NOT EXISTS Tools (
             id   INTEGER PRIMARY KEY ASC,
-            name TEXT,
-            mac  TEXT  UNIQUE,
+            name STRING,
+            mac  STRING  UNIQUE,
             lockedout INTEGER DEFAULT (0) 
         );
         
@@ -230,11 +236,11 @@ export function initData() {
         -- Table: Users
         CREATE TABLE IF NOT EXISTS Users (
             id       INTEGER PRIMARY KEY ASC,
-            fullName TEXT  NOT NULL
+            fullName STRING  NOT NULL
                              DEFAULT ('New User ' || LAST_INSERT_ROWID() ),
-            email    TEXT,
-            card     TEXT  UNIQUE,
-            doorCard TEXT  UNIQUE ON CONFLICT IGNORE,
+            email    STRING,
+            card     STRING  UNIQUE,
+            doorCard STRING  UNIQUE ON CONFLICT IGNORE,
             isGroup  BOOLEAN DEFAULT (FALSE) 
         );
         
@@ -257,8 +263,11 @@ export function initData() {
         `);
 
         stmtGetTools = db.prepare(`
-            SELECT id, name, mac, lockedout 
-            FROM Tools
+            SELECT id, name, mac, lockedout, coalesce(sum(al.spindleTime), 0) as spindleTime 
+            FROM Tools 
+            LEFT JOIN AccessLog al 
+            ON id = al.toolId AND al.op = 'out'
+            GROUP BY id
         `);
         stmtGetToolUsers = db.prepare(`
             SELECT userId 
@@ -266,7 +275,7 @@ export function initData() {
             WHERE toolId = ?
         `);
         stmtGetToolLog = db.prepare(`
-            SELECT userId, op, timestamp, card 
+            SELECT userId, op, timestamp, card, spindleTime 
             FROM AccessLog 
             WHERE toolId = ? 
             ORDER BY timestamp DESC
@@ -308,8 +317,8 @@ export function initData() {
             WHERE toolId = ?
         `);
         stmtAddLogEntry = db.prepare(`
-            INSERT INTO AccessLog (toolId, userId, timestamp, op, card) 
-            VALUES (?,?,?,?,?)
+            INSERT INTO AccessLog (toolId, userId, timestamp, op, card, spindleTime) 
+            VALUES (?,?,?,?,?,?)
         `);
         stmtEditUser = db.prepare(`
             UPDATE Users 
@@ -380,10 +389,10 @@ export function getTools() {
     try {
         const result = stmtGetTools.all() as ToolData[];
         return result.map(x => {
-            const newTool = new Tool(x.id, x.name, x.mac, x.lockedout);
+            const newTool = new Tool(x.id, x.name, x.mac, x.lockedout, x.spindleTime);
             newTool.users = stmtGetToolUsers.all(x.id).map((u: ToolUserData) => u.userId);
             const logEntries = stmtGetToolLog.all(x.id) as LogEntryData[];
-            newTool.log = logEntries.map(l => new LogEntry(l.userId, l.timestamp, l.op, l.card));
+            newTool.log = logEntries.map(l => new LogEntry(l.userId, l.timestamp, l.op, l.card, l.spindleTime));
             newTool.currentUserId = newTool.log.length > 0 && newTool.log[0].op === "in" ? newTool.log[0].userId : 0;
             const utilResult = stmtGetToolUtil.get(x.id) as UtilizationData;
             newTool.utilization = utilResult.util;
@@ -526,9 +535,9 @@ export function deleteUser(userId: number) {
 }
 
 
-export function addLogEntry(toolId: number, userId: number, time:number, op: string, card: string) {
+export function addLogEntry(toolId: number, userId: number, time:number, op: string, card: string, spindleTime: number) {
     try {
-        const result = stmtAddLogEntry.run(toolId, userId, time, op, card);
+        const result = stmtAddLogEntry.run(toolId, userId, time, op, card, spindleTime);
         return true;
     } catch(e) {
         console.log('Error in addUser: ' + e);
