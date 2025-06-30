@@ -40,7 +40,7 @@ public:
         Error
     };
 
-    LogEntry(const char *card, OpType op, time_t time);
+    LogEntry(const char *card, OpType op, time_t time, uint32_t spindleTime);
 
     cJSON *getJson();
 
@@ -48,6 +48,7 @@ private:
     std::string m_card;
     OpType m_op;
     time_t m_time;
+    uint32_t m_spindleTime;
 };
 
 class WebApi {
@@ -56,7 +57,7 @@ public:
     ~WebApi();
 
     void startHelloTask();
-    void addLog(const char *card, LogEntry::OpType op, time_t tm = time(NULL));
+    void addLog(const char *card, LogEntry::OpType op, time_t tm = time(NULL), uint32_t spindleTime = 0);
 private:
     Config &m_config;
     WiFi &m_wifi;

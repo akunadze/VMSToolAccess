@@ -40,6 +40,10 @@
             <span class="bg-white border p-1 flex-fill">
               {{ tool.utilization }}%
             </span>
+            <span class="bg-light border rounded-left p-1 w-25">Spindle time</span>
+            <span class="bg-white border p-1 flex-fill">
+              {{ getSpindleTimeText() }}
+            </span>
           </div>
         </b-collapse>
     </b-card-body>
@@ -114,6 +118,9 @@ export default {
       } else {
         return "";
       }
+    },
+    getSpindleTimeText() {
+      return this.$root.formatSeconds(this.tool.spindleTime);
     }
   }
 }

@@ -309,15 +309,15 @@ void WebApi::helloTask(void *pvParam) {
     }
 }
 
-void WebApi::addLog(const char *card, LogEntry::OpType op, time_t tm) {
+void WebApi::addLog(const char *card, LogEntry::OpType op, time_t tm, uint32_t spindleTime) {
     SemaphoreLock lock(m_semLog);
 
-    m_log.push_back(LogEntry(card, op, tm));
+    m_log.push_back(LogEntry(card, op, tm, spindleTime));
     xEventGroupSetBits(m_eventLogAvailable, 1);
 }
 
-LogEntry::LogEntry(const char *card, OpType op, time_t time) :
-    m_card(card), m_op(op), m_time(time)
+LogEntry::LogEntry(const char *card, OpType op, time_t time, uint32_t spindleTime) :
+    m_card(card), m_op(op), m_time(time), m_spindleTime(pdTICKS_TO_MS(spindleTime) / 1000)
 {
 }
 
@@ -336,6 +336,7 @@ cJSON *LogEntry::getJson() {
             break;
     }
     cJSON_AddItemToObject(obj, "time", cJSON_CreateNumber(m_time));
+    cJSON_AddItemToObject(obj, "spindleTime", cJSON_CreateNumber(m_spindleTime));
 
     return obj;
 }
