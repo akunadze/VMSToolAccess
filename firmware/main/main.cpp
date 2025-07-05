@@ -23,7 +23,7 @@
 #include "SpindleTime.h"
 //#include "Syslog.h"
 
-#include "WS2812.h"
+#include "led_strip.h"
 
 static const char *TAG = "main";
 
@@ -111,7 +111,7 @@ uint8_t morph(uint8_t start, uint8_t end, uint8_t step) {
 
 static bool bStopLightShow = false;
 void lightShowTask(void *pvParam) {
-    WS2812 *pLeds = (WS2812 *)pvParam;
+    led_strip_handle_t pLeds = (led_strip_handle_t)pvParam;
 
     uint8_t r1 = 255;
     uint8_t g1 = 0;
@@ -129,9 +129,9 @@ void lightShowTask(void *pvParam) {
             vTaskDelete(NULL);
         }
     
-        pLeds->setPixel(0, morph(r1, r2, step), morph(g1, g2, step), morph(b1, b2, step));
-        pLeds->setPixel(1, morph(r2, r1, step), morph(g2, g1, step), morph(b2, b1, step));
-        pLeds->show();
+
+        led_strip_set_pixel(pLeds, 0, morph(r1, r2, step), morph(g1, g2, step), morph(b1, b2, step));
+        led_strip_refresh(pLeds);
 
         if ((step == 0 && stepInc == -1) || (step == LIGHSHOW_STEPS && stepInc == 1)) {
             stepInc = 0 - stepInc;
@@ -174,6 +174,30 @@ bool getActiveCardAndSpindleTime(char *cardBuffer, size_t bufferSize, time_t &ti
     return bFound;
 }
 
+led_strip_handle_t initLED() {
+    led_strip_handle_t led_strip;
+
+    /* LED strip initialization with the GPIO and pixels number*/
+    led_strip_config_t strip_config;
+    
+    strip_config.strip_gpio_num = GPIO_NUM_32; // The GPIO that connected to the LED strip's data line
+    strip_config.max_leds = 1; // The number of LEDs in the strip,
+    strip_config.led_pixel_format = LED_PIXEL_FORMAT_GRB; // Pixel format of your LED strip
+    strip_config.led_model = LED_MODEL_WS2812; // LED strip model
+    strip_config.flags.invert_out = false; // whether to invert the output signal (useful when your hardware has a level inverter)
+
+    led_strip_rmt_config_t rmt_config;
+    rmt_config.clk_src = RMT_CLK_SRC_DEFAULT; // different clock source can lead to different power consumption
+    rmt_config.resolution_hz = 10 * 1000 * 1000; // 10MHz
+    rmt_config.flags.with_dma = false; // whether to enable the DMA feature
+    rmt_config.mem_block_symbols = 64; // how many RMT symbols can one RMT channel hold at one time, set to 0 will fallback to use the default size
+
+    led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
+    led_strip_clear(led_strip); // Clear the strip to turn off all LEDs
+
+    return led_strip;
+}
+
 void app_main(void)
 {
 //    ESP_ERROR_CHECK( heap_trace_init_standalone(trace_record, NUM_RECORDS) );
@@ -186,20 +210,18 @@ void app_main(void)
 
 	gpio_set_direction((gpio_num_t)16, GPIO_MODE_OUTPUT);
 
-    WS2812 leds((gpio_num_t)32, 2);
+    led_strip_handle_t led_strip = initLED();
 
     bool ledPhase = true;
-    leds.setPixel(0, ledPhase ? 255 : 0, ledPhase ? 0 : 255, 0);
-    leds.setPixel(1, ledPhase ? 0 : 255, ledPhase ? 255 : 0, 0);
-    leds.show();
+    led_strip_set_pixel(led_strip, 0, ledPhase ? 255 : 0, ledPhase ? 0 : 255, 0);
+    led_strip_refresh(led_strip);
 
     rfid.PCD_Init(21, 22);
 
     while (!wifi.isConnected()) {
         ledPhase = !ledPhase;
-        leds.setPixel(0, ledPhase ? 255 : 0, ledPhase ? 0 : 255, 0);
-        leds.setPixel(1, ledPhase ? 0 : 255, ledPhase ? 255 : 0, 0);
-        leds.show();
+        led_strip_set_pixel(led_strip, 0, ledPhase ? 255 : 0, ledPhase ? 0 : 255, 0);
+        led_strip_refresh(led_strip);
         ESP_LOGI(TAG, "Waiting for WiFi connection...");
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -223,7 +245,7 @@ void app_main(void)
 
     while (true) {
         bStopLightShow = false;
-        xTaskCreate(&lightShowTask, "LightShowTask", 2048, &leds, 5, NULL);
+        xTaskCreate(&lightShowTask, "LightShowTask", 2048, led_strip, 5, NULL);
 
         ESP_LOGI(TAG, "Waiting for a card...");
         if (detectCard()) {
@@ -241,9 +263,8 @@ void app_main(void)
             bool bAuthorized = false;
 
             if (config.isUserPresent(currentCard)) {
-                leds.setPixel(0, 0, 255, 0);
-                leds.setPixel(1, 0, 255, 0);
-                leds.show();
+                led_strip_set_pixel(led_strip, 0, 0, 255, 0);
+                led_strip_refresh(led_strip);
 
                 ESP_LOGW(TAG, "User authorized");
                 bAuthorized = true;
@@ -252,9 +273,8 @@ void app_main(void)
                 spindleTime.resetTime();
                 spindleTime.setRecord(true);
             } else {
-                leds.setPixel(0, 255, 0, 0);
-                leds.setPixel(1, 255, 0, 0);
-                leds.show();
+                led_strip_set_pixel(led_strip, 0, 255, 0, 0);
+                led_strip_refresh(led_strip);
 
                 ESP_LOGW(TAG, "User NOT authorized");
                 bAuthorized = false;
