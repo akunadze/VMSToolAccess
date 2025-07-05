@@ -2,6 +2,7 @@
 node_modules
 /dist
 build
+/firmware/managed_components
 
 # local env files
 .env.local
