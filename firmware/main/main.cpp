@@ -263,7 +263,7 @@ void app_main(void)
             bool bAuthorized = false;
 
             if (config.isUserPresent(currentCard)) {
-                led_strip_set_pixel(led_strip, 0, 0, 255, 0);
+                led_strip_set_pixel(led_strip, 0, 255, 0, 0);
                 led_strip_refresh(led_strip);
 
                 ESP_LOGW(TAG, "User authorized");
@@ -273,7 +273,7 @@ void app_main(void)
                 spindleTime.resetTime();
                 spindleTime.setRecord(true);
             } else {
-                led_strip_set_pixel(led_strip, 0, 255, 0, 0);
+                led_strip_set_pixel(led_strip, 0, 0, 255, 0);
                 led_strip_refresh(led_strip);
 
                 ESP_LOGW(TAG, "User NOT authorized");
