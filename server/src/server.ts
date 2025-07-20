@@ -28,6 +28,9 @@ data.initData();
 interface LastSeen {
   toolMac: string;
   timestamp: number;
+  updated: boolean;
+  offline: boolean;
+  version?: number;
 };
 
 let watchdog:LastSeen[] = [];
@@ -107,7 +110,7 @@ app.get('/api/logout', (req,res) => {
 
 
 app.post('/api/hello', (req, res) => {
-  //console.log('Hello from tool ' + req.body.mac);
+  console.log('Hello from tool ' + req.body.mac);
 
   let users: User[] = data.getUsers();
   let tools: Tool[] = data.getTools();
@@ -123,8 +126,11 @@ app.post('/api/hello', (req, res) => {
   const lastSeen = watchdog.find(x => x.toolMac === req.body.mac);
   if (lastSeen) {
     lastSeen.timestamp = getTime();
+    if (req.body.version) {
+      lastSeen.version = req.body.version;
+    }
   } else {
-    watchdog.push({toolMac: req.body.mac, timestamp: getTime()});
+    watchdog.push({toolMac: req.body.mac, timestamp: getTime(), updated: false, offline: false, version: req.body.version});
   }
 
   const existingTool = tools.find(x => x.mac === req.body.mac);
@@ -196,6 +202,28 @@ app.get('/api/tools/utilstats', (req, res) => {
   res.json(Response.mkData(result));
 });
 
+app.post('/api/tools/topusers', (req, res) => {
+  if (!isAuthorized(req)) {
+    res.status(401).json(Response.mkErr("Not logged in"));
+    return;
+  }
+
+  let tools: Tool[] = data.getTools();
+  
+  const toolId = req.body.toolId;
+  
+  if (!tools.find(x => x.id === toolId)) {
+    res.status(400).json(Response.mkErr("Tool not found"));
+    return;
+  }
+
+  console.log('api/tools/topusers called.')
+  const result = data.getToolTopUsers(toolId);
+
+  res.json(Response.mkData(result));
+});
+
+
 app.get('/api/users', (req, res) => {
   if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
@@ -220,6 +248,7 @@ app.get('/api/tools', (req, res) => {
   for (const tool of tools) {
     const lastSeen = watchdog.find(x => x.toolMac === tool.mac);
     tool.offline = !lastSeen || (getTime() - lastSeen.timestamp) > 30;
+    tool.version = lastSeen ? lastSeen.version : undefined;
   }
   res.json(Response.mkData(tools));
 });
@@ -502,6 +531,7 @@ wsServer.on('connection', (socket: WebSocket) => {
   };
   console.log("Sockets: " + sockets.size);
 });
+wsServer.on('error', console.error);
 
 
 setInterval(() => {
@@ -510,11 +540,17 @@ setInterval(() => {
   let tools: Tool[] = data.getTools();
 
   for (const tool of tools) {
-    const lastSeen = watchdog.find(x => x.toolMac === tool.mac);
-    const oldOffline = tool.offline;
-    tool.offline = !lastSeen || (getTime() - lastSeen.timestamp) > 30;
-    if (oldOffline != tool.offline) {
+    var lastSeen = watchdog.find(x => x.toolMac === tool.mac);
+    if (!lastSeen) {
+      lastSeen = {toolMac: tool.mac, timestamp: 0, updated: false, offline: false};
+      watchdog.push(lastSeen);
+    }
+    
+    const offline = (getTime() - lastSeen.timestamp) > 30;
+    if (!lastSeen.updated || offline != lastSeen.offline) {
       change = true;
+      lastSeen.updated = true;
+      lastSeen.offline = offline;
     }
   }
 
@@ -542,23 +578,3 @@ setInterval(() => {
 
 }, 10000);
 
-import('./mfrc522').then(rfid => {
-  rfid.initRFID();
-
-  let lastCard = "";
-
-  setInterval(() => {
-    let card = rfid.readCard();
-
-    if (card !== lastCard) {
-      lastCard = card;
-      if (lastCard != "") {
-        console.log("Card detected: " + lastCard);
-        sendCardInfo(card);
-      }
-    }
-
-  }, 1000);
-}).catch(e => {
-  console.log("RFID reader not detected");
-});

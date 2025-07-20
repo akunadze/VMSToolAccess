@@ -21,6 +21,7 @@ var stmtGetSetting: sqlite3.Statement;
 var stmtPutSetting: sqlite3.Statement;
 var stmtGetToolUtil: sqlite3.Statement;
 var stmtGetAllToolsUtil: sqlite3.Statement;
+var stmtGetTopToolUsers: sqlite3.Statement;
 var stmtDoorCardQuery: sqlite3.Statement;
 var stmtRegisterToolCard: sqlite3.Statement;
 var stmtIsToolCardRegistered: sqlite3.Statement;
@@ -134,6 +135,7 @@ export class Tool {
     utilization: number;
     isLocked: boolean;
     spindleTime: number;
+    version?: number;
 
     constructor(id: number, name: string, mac: string, lockedout: number, spindleTime: number) {
         this.id = id;
@@ -283,7 +285,7 @@ export function initData() {
         stmtGetUsers = db.prepare(`
             SELECT id, fullName, email, card, doorCard, isGroup 
             FROM Users 
-            ORDER BY isGroup DESC, fullName
+            ORDER BY isGroup DESC, fullName COLLATE NOCASE
         `);
         stmtGetGroupUsers = db.prepare(`
             SELECT id 
@@ -349,8 +351,8 @@ export function initData() {
         stmtGetToolUtil = db.prepare(`
             WITH lengths AS (
             SELECT *, 
-                   IIF(op = 'out' AND (LAG(op) OVER ()) = 'in' AND userId = (LAG(userId) OVER ()), 
-                   timestamp - LAG(timestamp, 1, 0) OVER (), 0) AS length 
+                    IIF(op = 'out' AND (LAG(op) OVER (PARTITION BY userId ORDER BY timestamp)) = 'in' AND userId = (LAG(userId) OVER (PARTITION BY userId ORDER BY timestamp)), 
+                    timestamp - LAG(timestamp, 1, 0) OVER (PARTITION BY userId ORDER BY timestamp), 0) AS length
             FROM AccessLog 
             WHERE toolId = ? 
             ORDER BY timestamp
@@ -360,20 +362,35 @@ export function initData() {
         `);
         
         stmtGetAllToolsUtil = db.prepare(`
-        WITH lengths AS (
-            SELECT *,
-                   IIF(op = 'out' AND (LAG(op) OVER ()) = 'in' AND userId = (LAG(userId) OVER ()), 
-                       timestamp - LAG(timestamp, 1, 0) OVER (), 0) AS length
-            FROM AccessLog
-            ORDER BY timestamp
-        )
-        SELECT toolId, name, 
-               ROUND((SUM(length) * (7*24.0)) / (strftime('%s','now') - MIN(timestamp)), 1) AS HoursPerWeek
-        FROM lengths
-        JOIN tools ON toolId = id
-        GROUP BY toolId;
+            WITH lengths AS (
+                SELECT *,
+                        IIF(op = 'out' AND (LAG(op) OVER (PARTITION BY userId ORDER BY timestamp)) = 'in' AND userId = (LAG(userId) OVER (PARTITION BY userId ORDER BY timestamp)), 
+                        timestamp - LAG(timestamp, 1, 0) OVER (PARTITION BY userId ORDER BY timestamp), 0) AS length
+                FROM AccessLog
+                ORDER BY timestamp
+            )
+            SELECT toolId, name, 
+                ROUND((SUM(length) * (7*24.0)) / (strftime('%s','now') - MIN(timestamp)), 1) AS HoursPerWeek
+            FROM lengths
+            JOIN tools ON toolId = id
+            GROUP BY toolId;
         `);
         
+        stmtGetTopToolUsers = db.prepare(`
+            WITH lengths AS (            
+            SELECT *, 
+                    IIF(op = 'out' AND (LAG(op) OVER (PARTITION BY userId ORDER BY timestamp)) = 'in' AND userId = (LAG(userId) OVER (PARTITION BY userId ORDER BY timestamp)), 
+                    timestamp - LAG(timestamp, 1, 0) OVER (PARTITION BY userId ORDER BY timestamp), 0) AS length
+                FROM AccessLog
+                WHERE toolId = ? AND userId IS NOT NULL
+                ORDER BY timestamp
+            )
+            SELECT userId, SUM(spindleTime) as spindleTime, SUM(length) as userTotal 
+            FROM lengths 
+            WHERE op = 'out' 
+            GROUP BY userId 
+            ORDER BY spindleTime DESC, userTotal DESC
+        `);
 
         stmtDoorCardQuery = db.prepare("SELECT id, fullName, card FROM Users WHERE doorCard = ?");
         stmtRegisterToolCard = db.prepare("UPDATE Users SET card = ? WHERE doorCard = ? AND card IS NULL");
@@ -414,6 +431,15 @@ export function getToolsUtilStats() {
     }
 }
 
+export function getToolTopUsers(toolId: number) {
+    try {
+        const result = stmtGetTopToolUsers.all(toolId);
+        return result;
+    } catch(e) {
+        console.log('Error in getToolTopUsers: ' + e);
+        return [];
+    }
+}
 
 export function getUsers(): User[] {
     try {
