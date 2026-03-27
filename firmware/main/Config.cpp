@@ -30,6 +30,9 @@ Config::Config() :
     ESP_ERROR_CHECK(nvs_get_str(hNvs, "syslogHost", m_syslogHost, &strLen));
     ESP_ERROR_CHECK(nvs_get_u16(hNvs, "syslogPort", &m_syslogPort));
 
+    nvs_get_u16(hNvs, "gateCloseAngle", &m_gateCloseAngle);
+    nvs_get_u16(hNvs, "gateOpenAngle", &m_gateOpenAngle);
+
     if (m_masterUrl[strlen(m_masterUrl) - 1] == '/') {
         m_masterUrl[strlen(m_masterUrl) - 1] = '\0';
     }

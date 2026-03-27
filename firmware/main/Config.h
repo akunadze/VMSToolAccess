@@ -17,10 +17,12 @@ public:
     const char *getMac() const { return m_macAddress; }
     const char *getSyslogHost() const { return m_syslogHost; }
     uint16_t getSyslogPort() const { return m_syslogPort; }
+    uint16_t getGateCloseAngle() const { return m_gateCloseAngle; }
+    uint16_t getGateOpenAngle() const { return m_gateOpenAngle; }
     void setUsers(std::vector<std::string> &newUsers);
     bool isUserPresent(const char *cardId);
 
-    static const int sVersion = 1;
+    static const int sVersion = 4;
 
 private:
     char m_wifiSid[32];
@@ -29,7 +31,9 @@ private:
     char m_macAddress[32];
     char m_syslogHost[32];
     uint16_t m_syslogPort;
-    
+    uint16_t m_gateCloseAngle = 0;
+    uint16_t m_gateOpenAngle = 90;
+
     std::vector<std::string> m_users;
 
     SemaphoreHandle_t m_semaphore;
