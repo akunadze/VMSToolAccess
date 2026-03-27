@@ -155,6 +155,7 @@ WebApi::~WebApi() {
 void WebApi::sendHello() {
     auto obj = cJSON_CreateObject();
     cJSON_AddItemToObject(obj, "mac", cJSON_CreateString(m_config.getMac()));
+    cJSON_AddItemToObject(obj, "version", cJSON_CreateNumber(m_config.sVersion));
 
     std::vector<LogEntry> logsToSend;
     {
@@ -273,9 +274,8 @@ void WebApi::doUpdate(int newVersion) {
     config.event_handler = NULL;
     config.keep_alive_enable = true;
 
-    esp_https_ota_config_t ota_config = {
-        .http_config = &config,
-    };
+    esp_https_ota_config_t ota_config = {};
+    ota_config.http_config = &config;
 
     ESP_LOGI(TAG, "Attempting to download update from %s", config.url);
     esp_err_t ret = esp_https_ota(&ota_config);

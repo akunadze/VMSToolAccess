@@ -79,7 +79,6 @@ uint32_t SpindleTime::getTime() {
 }
 
 void SpindleTime::resetTime() {
-    uint32_t ret;
     taskENTER_CRITICAL(m_lock.get());
     m_spindleTime = 0;
     taskEXIT_CRITICAL(m_lock.get());

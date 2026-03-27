@@ -1,11 +1,3 @@
-/* Hello World Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 #include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
@@ -21,11 +13,16 @@
 #include "esp_heap_trace.h"
 #include "nvs_flash.h"
 #include "SpindleTime.h"
+#include "iot_servo.h"
 //#include "Syslog.h"
 
 #include "led_strip.h"
 
 static const char *TAG = "main";
+
+const gpio_num_t RELAY_PIN = GPIO_NUM_16;
+const gpio_num_t GATE_SERVO_PIN = GPIO_NUM_25;
+const gpio_num_t LED_PIN = GPIO_NUM_32;
 
 MFRC522 rfid;
 
@@ -91,7 +88,7 @@ bool detectCard() {
 }
 
 void setAccess(bool enable) {
-    gpio_set_level((gpio_num_t)16, enable);
+    gpio_set_level(RELAY_PIN, enable);
 }
 
 extern "C" {
@@ -180,7 +177,7 @@ led_strip_handle_t initLED() {
     /* LED strip initialization with the GPIO and pixels number*/
     led_strip_config_t strip_config;
     
-    strip_config.strip_gpio_num = GPIO_NUM_32; // The GPIO that connected to the LED strip's data line
+    strip_config.strip_gpio_num = LED_PIN; // The GPIO that connected to the LED strip's data line
     strip_config.max_leds = 1; // The number of LEDs in the strip,
     strip_config.led_pixel_format = LED_PIXEL_FORMAT_GRB; // Pixel format of your LED strip
     strip_config.led_model = LED_MODEL_WS2812; // LED strip model
@@ -198,6 +195,29 @@ led_strip_handle_t initLED() {
     return led_strip;
 }
 
+static void servo_init()
+{
+    servo_config_t servo_cfg = {
+        .max_angle = 180,
+        .min_width_us = 500,
+        .max_width_us = 2500,
+        .freq = 400,
+        .timer_number = LEDC_TIMER_0,
+        .channels = {
+            .servo_pin = {
+                GATE_SERVO_PIN,
+            },
+            .ch = {
+                LEDC_CHANNEL_0,
+            },
+        },
+        .channel_number = 1,
+    };
+
+    iot_servo_init(LEDC_HIGH_SPEED_MODE, &servo_cfg);
+}
+
+
 void app_main(void)
 {
 //    ESP_ERROR_CHECK( heap_trace_init_standalone(trace_record, NUM_RECORDS) );
@@ -208,7 +228,7 @@ void app_main(void)
     //Syslog syslog(config);
     WiFi wifi(config);
 
-	gpio_set_direction((gpio_num_t)16, GPIO_MODE_OUTPUT);
+	gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
 
     led_strip_handle_t led_strip = initLED();
 
@@ -225,6 +245,9 @@ void app_main(void)
         ESP_LOGI(TAG, "Waiting for WiFi connection...");
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
+
+    servo_init();
+    iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateCloseAngle());
 
     WebApi api(config, wifi);
     api.startHelloTask();
@@ -265,6 +288,7 @@ void app_main(void)
             if (config.isUserPresent(currentCard)) {
                 led_strip_set_pixel(led_strip, 0, 255, 0, 0);
                 led_strip_refresh(led_strip);
+                iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateOpenAngle());
 
                 ESP_LOGW(TAG, "User authorized");
                 bAuthorized = true;
@@ -275,6 +299,7 @@ void app_main(void)
             } else {
                 led_strip_set_pixel(led_strip, 0, 0, 255, 0);
                 led_strip_refresh(led_strip);
+                iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateCloseAngle());
 
                 ESP_LOGW(TAG, "User NOT authorized");
                 bAuthorized = false;
@@ -294,6 +319,7 @@ void app_main(void)
             if (bAuthorized) {
                 spindleTime.setRecord(false);
                 setAccess(false);
+                iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateCloseAngle());
                 api.addLog(currentCard, LogEntry::LogOut, time(NULL), spindleTime.getTime());
                 saveActiveCardAndSpindleTime("", 0);
             }
