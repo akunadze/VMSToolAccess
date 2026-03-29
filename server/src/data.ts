@@ -27,6 +27,14 @@ var stmtRegisterToolCard: sqlite3.Statement;
 var stmtIsToolCardRegistered: sqlite3.Statement;
 var stmtGetGroupId:  sqlite3.Statement;
 var stmtSetToolLockout:  sqlite3.Statement;
+var stmtGetUserTopTools: sqlite3.Statement;
+
+var stmtGetPortalUsers:  sqlite3.Statement;
+var stmtAddPortalUser:  sqlite3.Statement;
+var stmtEditPortalUser:  sqlite3.Statement;
+var stmtDeletePortalUser:  sqlite3.Statement;
+var stmtAddAuditEntry:  sqlite3.Statement;
+
 
 interface ToolData {
     id: number;
@@ -59,6 +67,12 @@ interface UserData {
     card: string;
     doorCard: string;
     isGroup: boolean;
+}
+
+interface PortalUserData {
+    id: number;
+    name: string;
+    password: string;
 }
 
 interface SettingData {
@@ -107,7 +121,20 @@ export class User {
         this.members = members;
     }
 }
-      
+
+export class PortalUser {
+    id: number;
+    name: string;
+    password: string;
+
+    constructor(id: number, name: string, password: string) {
+        this.id = id;
+        this.name = name;
+        this.password = password;
+    }
+}
+
+
 export class LogEntry {
     userId: number;
     timestamp: number;
@@ -191,9 +218,9 @@ export function initData() {
                                                     ON UPDATE CASCADE,
             userId    INTEGER REFERENCES Users (id) ON DELETE CASCADE
                                                     ON UPDATE CASCADE,
-            op        STRING  NOT NULL,
+            op        TEXT  NOT NULL,
             timestamp INTEGER DEFAULT (strftime('%s', 'now') ),
-            card      STRING,
+            card      TEXT,
             spindleTime INTEGER DEFAULT (0)
         );
 
@@ -213,17 +240,17 @@ export function initData() {
         
         -- Table: Settings
         CREATE TABLE IF NOT EXISTS Settings (
-            [Key] STRING NOT NULL
+            [Key] TEXT NOT NULL
                          PRIMARY KEY,
-            Value STRING NOT NULL
+            Value TEXT NOT NULL
         );
         
         
         -- Table: Tools
         CREATE TABLE IF NOT EXISTS Tools (
             id   INTEGER PRIMARY KEY ASC,
-            name STRING,
-            mac  STRING  UNIQUE,
+            name TEXT,
+            mac  TEXT  UNIQUE,
             lockedout INTEGER DEFAULT (0) 
         );
         
@@ -238,11 +265,11 @@ export function initData() {
         -- Table: Users
         CREATE TABLE IF NOT EXISTS Users (
             id       INTEGER PRIMARY KEY ASC,
-            fullName STRING  NOT NULL
+            fullName TEXT  NOT NULL
                              DEFAULT ('New User ' || LAST_INSERT_ROWID() ),
-            email    STRING,
-            card     STRING  UNIQUE,
-            doorCard STRING  UNIQUE ON CONFLICT IGNORE,
+            email    TEXT,
+            card     TEXT  UNIQUE,
+            doorCard TEXT  UNIQUE ON CONFLICT IGNORE,
             isGroup  BOOLEAN DEFAULT (FALSE) 
         );
         
@@ -259,6 +286,11 @@ export function initData() {
              WHERE rowid = NEW.rowid;
         END;
         
+        CREATE TABLE IF NOT EXISTS AuditLog (
+            userId    INTEGER REFERENCES PortalUsers (id),
+            action    TEXT,
+            timestamp INTEGER DEFAULT (strftime('%s', 'now') ) 
+        );
         
         COMMIT TRANSACTION;
         PRAGMA foreign_keys = on;
@@ -378,7 +410,7 @@ export function initData() {
         
         stmtGetTopToolUsers = db.prepare(`
             WITH lengths AS (            
-            SELECT *, 
+                SELECT *, 
                     IIF(op = 'out' AND (LAG(op) OVER (PARTITION BY userId ORDER BY timestamp)) = 'in' AND userId = (LAG(userId) OVER (PARTITION BY userId ORDER BY timestamp)), 
                     timestamp - LAG(timestamp, 1, 0) OVER (PARTITION BY userId ORDER BY timestamp), 0) AS length
                 FROM AccessLog
@@ -390,13 +422,36 @@ export function initData() {
             WHERE op = 'out' 
             GROUP BY userId 
             ORDER BY spindleTime DESC, userTotal DESC
+            LIMIT 10
         `);
+
+        stmtGetUserTopTools = db.prepare(`
+            WITH lengths AS (
+                SELECT *, 
+                        IIF(op = 'out' AND (LAG(op) OVER (PARTITION BY toolId ORDER BY timestamp)) = 'in' AND toolId = (LAG(toolId) OVER (PARTITION BY toolId ORDER BY timestamp)), 
+                        timestamp - LAG(timestamp, 1, 0) OVER (PARTITION BY userId ORDER BY timestamp), 0) AS length
+                FROM AccessLog
+                WHERE userId = ?
+                ORDER BY timestamp
+            ) 
+            SELECT toolId, SUM(length) AS totalTime, SUM(spindleTime) as totalSpindleTime
+            FROM lengths
+            GROUP BY toolId
+            ORDER BY totalSpindleTime DESC, totalTime DESC
+        `);
+
 
         stmtDoorCardQuery = db.prepare("SELECT id, fullName, card FROM Users WHERE doorCard = ?");
         stmtRegisterToolCard = db.prepare("UPDATE Users SET card = ? WHERE doorCard = ? AND card IS NULL");
         stmtIsToolCardRegistered = db.prepare("SELECT fullName FROM Users WHERE card = ?");
         stmtGetGroupId = db.prepare("SELECT id FROM Users WHERE fullName = ?");
         stmtSetToolLockout = db.prepare("UPDATE tools SET lockedout = ? WHERE id = ?");
+
+        stmtGetPortalUsers = db.prepare("SELECT id, name, password FROM PortalUsers");
+        stmtAddPortalUser = db.prepare("INSERT INTO PortalUsers (name, password) VALUES (?, ?)");
+        stmtEditPortalUser = db.prepare("UPDATE PortalUsers SET name = ?, password = ? WHERE id = ?");
+        stmtDeletePortalUser = db.prepare("DELETE FROM PortalUsers WHERE id = ?");
+        stmtAddAuditEntry = db.prepare("INSERT INTO AuditLog (userId, action) VALUES (?, ?)");
     } catch(e) {
         console.log('Error in initData: ' + e);
     }
@@ -441,6 +496,17 @@ export function getToolTopUsers(toolId: number) {
     }
 }
 
+export function getUserTopTools(userId: number) {
+    try {
+        const result = stmtGetUserTopTools.all(userId);
+        return result;
+    } catch(e) {
+        console.log('Error in getUserTopTools: ' + e);
+        return [];
+    }
+}
+
+
 export function getUsers(): User[] {
     try {
         const result = stmtGetUsers.all() as UserData[];
@@ -448,6 +514,17 @@ export function getUsers(): User[] {
         return map;
     } catch(e) {
         console.log('Error in getUsers: ' + e);
+        return [];
+    }
+}
+
+export function getPortalUsers(): PortalUser[] {
+    try {
+        const result = stmtGetPortalUsers.all() as PortalUserData[];
+        const map = result.map(x => new PortalUser(x.id, x.name, x.password));
+        return map;
+    } catch(e) {
+        console.log('Error in getPortalUsers: ' + e);
         return [];
     }
 }
@@ -560,6 +637,36 @@ export function deleteUser(userId: number) {
     }
 }
 
+export function addPortalUser(name: string, password: string) {
+    try {
+        stmtAddPortalUser.run(nullIfEmpty(name), nullIfEmpty(password));
+        return true;
+    } catch(e) {
+        console.log('Error in addPortalUser: ' + e);
+        return false;
+    }
+}
+
+export function editPortalUser(userId: number, name: string, password: string) {
+    try {
+        stmtEditPortalUser.run(nullIfEmpty(name), nullIfEmpty(password), userId);
+        return true;
+    } catch(e) {
+        console.log('Error in editPortalUser: ' + e);
+        return false;
+    }
+}
+
+export function deletePortalUser(userId: number) {
+    try {
+        stmtDeletePortalUser.run(userId);
+        return true;
+    } catch(e) {
+        console.log('Error in deletePortalUser: ' + e);
+        return false;
+    }
+}
+
 
 export function addLogEntry(toolId: number, userId: number, time:number, op: string, card: string, spindleTime: number) {
     try {
@@ -653,6 +760,20 @@ export function registerToolCard(doorCard: string, toolCard: string) {
         }
     } catch(e) {
         console.log('Error in registerToolCard: ' + e);
+        return false;
+    }
+}
+
+export function addAuditEntry(userId: number, action: string) {
+    try {
+        const result = stmtAddAuditEntry.run(userId, action);
+        if (result && result.changes == 1) {
+            return true;
+        } else {
+            return false;
+        }
+    } catch(e) {
+        console.log('Error in addAuditEntry: ' + e);
         return false;
     }
 }
