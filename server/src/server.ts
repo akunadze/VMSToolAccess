@@ -2,7 +2,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
 import ws from 'ws';
-import {Tool, User, Response} from "./data"
+import {Tool, User, Response, PortalUser} from "./data"
 import * as data from "./data";
 import path from "path";
 import https from "https";
@@ -17,13 +17,10 @@ app.use(cookieParser());
 app.use(session({secret: config.SESSION_SECRET, saveUninitialized: false, resave: true}));
 
 // Uncomment to see full request/response bodies in the log
-//import morganBody from 'morgan-body';
-//morganBody(app)
+// import morganBody from 'morgan-body';
+// morganBody(app)
 
 data.initData();
-
-// let users: User[] = data.getUsers();
-// let tools: Tool[] = data.getTools();
 
 interface LastSeen {
   toolMac: string;
@@ -40,18 +37,27 @@ let latestVersion:number = 0;
 const saltRounds = 10;
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../../dist')));
+app.use(express.static(path.join(__dirname, '../../frontend/dist')));
 app.use('/updates', express.static(path.join(__dirname, '../../updates')));
 
 function getTime() { return Math.floor(Date.now() / 1000);}
 
-let adminPass = data.getAdminPass();
-if (!adminPass) {
-  adminPass = bcrypt.hashSync(config.DEFAULT_ADMIN_PASS, saltRounds);
-}
+// let adminPass = data.getAdminPass();
+// if (!adminPass) {
+//   adminPass = bcrypt.hashSync(config.DEFAULT_ADMIN_PASS, saltRounds);
+// }
 
 function isAuthorized(req:any) {
   return req.session.loggedIn;
+}
+
+function audit(req:any, action:string) {
+  if (!isAuthorized(req)) {
+    console.log("Trying to add to audit log without a logged in user");
+    return;
+  }
+  
+  data.addAuditEntry(req.session.userId, action);
 }
 
 app.post('/api/login', (req,res) => {
@@ -59,15 +65,29 @@ app.post('/api/login', (req,res) => {
   const pass = req.body.password;
 
   if (!user && !pass && req.session.loggedIn) {
-    res.json(Response.mkOk());
+    res.json(Response.mkData({id: req.session.userId}));
     return;
   }
 
-  if (user === 'admin' && bcrypt.compareSync(pass, adminPass)) {
+  if (!user || !pass) {
+    res.status(401).json(Response.mkErr("Failed authentication"));
+    return;
+  }
+
+  if (!req.session) {
+    res.status(500).json(Response.mkErr("Session not initialized"));
+    return;
+  }
+
+  const portalUsers = data.getPortalUsers();
+  const portalUser = portalUsers.find(x => x.name === user);
+  if (portalUser && (bcrypt.compareSync(pass, portalUser.password) || !portalUser.password)) {
+    console.log('User ' + user + ' logged in');
     req.session.loggedIn = true;
+    req.session.userId = portalUser.id;
+    req.session.cookie.maxAge = 1000 * 60 * 60 * 24; // 1 day
     req.session.save((err) => {});
-    const r = Response.mkOk();
-    res.json(r);
+    res.json(Response.mkData({id: portalUser.id}));
   } else {
     res.status(401).json(Response.mkErr("Failed authentication"));
   }
@@ -79,22 +99,31 @@ app.post('/api/changePassword', (req,res) => {
     return;
   }
 
+  const userId = req.session.userId;
+
   const oldPass = req.body.oldPass;
   const newPass = req.body.newPass;
 
   if (!oldPass || !newPass) {
-    res.status(400).json(Response.mkErr("Failed authentication"));
+    res.status(401).json(Response.mkErr("Failed authentication"));
     return;
   }
 
-  if (!bcrypt.compareSync(oldPass, adminPass)) {
-    res.status(400).json(Response.mkErr("Failed authentication"));
+  const portalUsers = data.getPortalUsers();
+  const portalUser = portalUsers.find(x => x.id === userId);
+  if (!portalUser) {
+    res.status(401).json(Response.mkErr("Failed authentication"));
+    return;
+  }
+
+  if (!bcrypt.compareSync(oldPass, portalUser.password)) {
+    res.status(401).json(Response.mkErr("Failed authentication"));
     return;
   }
 
   const newPassHash = bcrypt.hashSync(newPass, saltRounds);
-  if (data.setAdminPass(newPassHash)) {
-    adminPass = newPassHash;
+  if (data.editPortalUser(userId, portalUser.name, newPassHash)) {
+    audit(req, "Changed password");
     res.status(200).json(Response.mkOk());
   } else {
     res.status(500).json(Response.mkErr("Internal error"));
@@ -224,6 +253,33 @@ app.post('/api/tools/topusers', (req, res) => {
 });
 
 
+app.post('/api/users/toptools', (req, res) => {
+  if (!isAuthorized(req)) {
+    res.status(401).json(Response.mkErr("Not logged in"));
+    return;
+  }
+
+  const userId = req.body.userId;
+
+  if (!userId) {
+    res.status(400).json(Response.mkErr("Malformed request"));
+    return;
+  }
+
+  let users: User[] = data.getUsers();
+
+  if (!users.find(x => x.id === userId)) {
+    res.status(400).json(Response.mkErr("User not found"));
+    return;
+  }
+
+  console.log('api/users/toptools called.')
+  const result = data.getUserTopTools(userId);
+
+  res.json(Response.mkData(result));
+});
+
+
 app.get('/api/users', (req, res) => {
   if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
@@ -253,6 +309,117 @@ app.get('/api/tools', (req, res) => {
   res.json(Response.mkData(tools));
 });
 
+app.get('/api/portalusers', (req, res) => {
+  if (!isAuthorized(req)) {
+    res.status(401).json(Response.mkErr("Not logged in"));
+    return;
+  }
+
+  console.log('api/portalusers called')
+  let portalUsers: PortalUser[] = data.getPortalUsers();
+  portalUsers.forEach(user => {
+    user.password = undefined; // Don't send password hashes
+  });
+
+  res.json(Response.mkData(portalUsers));
+});
+
+app.post('/api/portaluser/add', (req, res) => {
+  if (!isAuthorized(req)) {
+    res.status(401).json(Response.mkErr("Not logged in"));
+    return;
+  }
+
+  console.log('api/portaluser/add called.')
+
+  const userName = req.body.name;
+  const userPassword = req.body.password;
+
+  if (!userName || !userPassword) {
+    res.status(400).json(Response.mkErr("Malformed request"));
+    return;
+  }
+
+  if (data.addPortalUser(userName, userPassword)) {
+    audit(req, `Added portal user ${userName}`);
+    res.json(Response.mkOk());
+  } else {
+    res.json(Response.mkErr("Internal error"));
+  }
+
+  sendUpdateNotification();
+});
+
+app.post('/api/portaluser/edit', (req, res) => {
+  if (!isAuthorized(req)) {
+    res.status(401).json(Response.mkErr("Not logged in"));
+    return;
+  }
+
+  console.log('api/portaluser/edit called.')
+
+  const userId = req.body.id;
+  const userName = req.body.name;
+  const newPassword = req.body.password;
+  let passHash;
+
+  if (!userId || !userName) {
+    res.status(401).json(Response.mkErr("Malformed request"));
+    return;
+  }
+
+  let portalUsers: PortalUser[] = data.getPortalUsers();
+  let user = portalUsers.find(x => x.id === userId);
+
+  if (!user) {
+    res.status(401).json(Response.mkErr("Malformed request"));
+    return;
+  }
+
+  if (newPassword) {
+    passHash = bcrypt.hashSync(newPassword, saltRounds);
+  } else {
+    passHash = user.password;
+  }
+
+  if (data.editPortalUser(userId, userName, passHash)) {
+    audit(req, `Editted portal user ${userName}(${userId})`);
+    res.json(Response.mkOk());
+  } else {
+    res.json(Response.mkErr("Internal error"));
+  }
+
+  sendUpdateNotification();
+});
+
+app.post('/api/portaluser/delete', (req, res) => {
+  if (!isAuthorized(req)) {
+    res.status(401).json(Response.mkErr("Not logged in"));
+    return;
+  }
+
+  console.log('api/portaluser/delete called.')
+
+  const userId = req.body.id;
+
+  let portalUsers: PortalUser[] = data.getPortalUsers();
+  let user = portalUsers.find(x => x.id === userId);
+
+  if (!user) {
+    res.status(401).json(Response.mkErr("Malformed request"));
+    return;
+  }
+
+  if (data.deletePortalUser(userId)) {
+    audit(req, `Deleted portal user ${user.name}(${userId})`);
+    res.json(Response.mkOk());
+  } else {
+    res.json(Response.mkErr("Internal error"));
+  }
+
+  sendUpdateNotification();
+});
+
 app.post('/api/tool/delete', (req, res) => {
   if (!isAuthorized(req)) {
     res.status(401).json(Response.mkErr("Not logged in"));
@@ -263,13 +430,15 @@ app.post('/api/tool/delete', (req, res) => {
   let tools: Tool[] = data.getTools();
   
   const toolId = req.body.id;
+  const tool = tools.find(x => x.id === toolId);
   
-  if (!tools.find(x => x.id === toolId)) {
+  if (!tool) {
     res.status(400).json(Response.mkErr("Tool not found"));
     return;
   }
   
   if (data.deleteTool(toolId)) {
+    audit(req, `Deleted tool ${tool.name}(${toolId})`);
     res.json(Response.mkOk());
   } else {
     res.json(Response.mkErr("Internal error"));
@@ -289,8 +458,9 @@ app.post('/api/tool/setlockout', (req, res) => {
   
   const toolId = req.body.id;
   const isLocked = req.body.islocked;
+  const tool = tools.find(x => x.id === toolId);
   
-  if (!tools.find(x => x.id === toolId)) {
+  if (!tool) {
     res.status(400).json(Response.mkErr("Tool not found"));
     return;
   }
@@ -301,6 +471,7 @@ app.post('/api/tool/setlockout', (req, res) => {
   }
 
   if (data.setToolLockout(toolId, isLocked)) {
+    audit(req, (isLocked ? "Locked out " : "Unlocked ") + `${tool.name}(${toolId})`);
     res.json(Response.mkOk());
   } else {
     res.json(Response.mkErr("Internal error"));
@@ -328,7 +499,9 @@ app.post('/api/tool/edit', (req, res) => {
   }
 
   if (req.body.toolName) {
-    data.editTool(tool.id, req.body.toolName);
+    if (data.editTool(tool.id, req.body.toolName)) {
+      audit(req, `Renamed ${tool.name}(${toolId})`);
+    }
   }
     
   if (req.body.toolUsers) {
@@ -342,7 +515,12 @@ app.post('/api/tool/edit', (req, res) => {
       }
     });
     
-    data.setToolUsers(tool.id, newUsers);
+    if (data.setToolUsers(tool.id, newUsers)) {
+      let add: number[] = newUsers.filter(x => !tool.users.includes(x));
+      let del: number[] = tool.users.filter(x => !newUsers.includes(x));
+      
+      audit(req, `Set tool users for ${tool.name}(${toolId}): add ` + add.join(",") + ", remove " + del.join(","));
+    }
   }
   
   res.json(Response.mkOk());
@@ -508,11 +686,9 @@ function sendUpdateNotification() {
   sockets.forEach((x:WebSocket) => x.send('update'));
 }
 
-function sendCardInfo(card:string) {
-  console.log('Sending card');
-  sockets.forEach((x:WebSocket) => x.send(card));
-}
-
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../frontend/dist', 'index.html'));
+});
 
 let server = https.createServer({
   key: fs.readFileSync('server.key'),

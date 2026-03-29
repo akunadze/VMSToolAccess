@@ -1,6 +1,7 @@
 mkdir stage
-mkdir stage\dist
-xcopy /S dist stage\dist
+mkdir stage\frontend
+mkdir stage\frontend\dist
+xcopy /S frontend\dist stage\frontend\dist
 mkdir stage\server
 mkdir stage\server\data
 mkdir stage\server\src
