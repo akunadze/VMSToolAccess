@@ -1,9 +1,9 @@
 <script setup lang="ts">
-  import { reactive } from "vue";
-  import { useStateStore } from "@/stores/state"
+  import { reactive, computed, watch } from "vue";
+  import { usePortalUsers } from "@/composables/usePortalUsers"
+  import { usePortalUserMutations } from "@/composables/usePortalUserMutations"
   import { useRoute, useRouter } from "vue-router";
 
-  const myState = useStateStore();
   const router = useRouter();
 
   const userId = useRoute().params.id as string;
@@ -11,6 +11,9 @@
   if (!userId) {
     throw new Error("Portal User ID is required");
   }
+
+  const { findPortalUser } = usePortalUsers();
+  const { addPortalUser, editPortalUser, deletePortalUser } = usePortalUserMutations();
 
   let newUser = false;
 
@@ -25,22 +28,19 @@
     newUser = true;
   } else {
     newUser = false;
-    const foundUser = myState.findPortalUser(+userId);
-    if (!foundUser) {
-      throw new Error("Portal user not found");
-    }
-    data.id = foundUser.id;
-    data.name = foundUser.name;
+    const foundUser = computed(() => findPortalUser(+userId));
+    watch(foundUser, (user) => {
+      if (user && !data.isModified) {
+        data.id = user.id;
+        data.name = user.name;
+      }
+    }, { immediate: true });
   }
-
 
   function onDelete() {
     if (data.id > 0) {
-      myState.deletePortalUser(data.id).then(res => {
-        if (res) {
-          myState.refreshData();
-          router.back();
-        }
+      deletePortalUser.mutateAsync(data.id).then(() => {
+        router.back();
       });
     }
   }
@@ -51,18 +51,12 @@
 
   function onSubmit() {
     if (newUser) {
-      myState.addPortalUser(data.name, data.newPassword).then(res => {
-        if (res) {
-          myState.refreshData();
-          router.back();
-        }
+      addPortalUser.mutateAsync({ name: data.name, password: data.newPassword }).then(() => {
+        router.back();
       });
     } else {
-      myState.editPortalUser(data.id, data.name, data.newPassword).then(res => {
-        if (res) {
-          myState.refreshData();
-          router.back();
-        }
+      editPortalUser.mutateAsync({ id: data.id, name: data.name, password: data.newPassword }).then(() => {
+        router.back();
       });
     }
   }

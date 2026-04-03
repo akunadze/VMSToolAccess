@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { useStateStore, type ToolData } from "@/stores/state"
+import { useUsers } from "@/composables/useUsers"
+import type { ToolData } from "@/types"
 
 const props = defineProps<{
   tool: ToolData
 }>()
 
-const myState = useStateStore();
+const { getUserFullName, getLogEntryDisplayName } = useUsers();
 
 function getLastUseData() {
   if (props.tool.log.length > 0) {
     const lastLog = props.tool.log[0];
     return {
-      user: myState.getLogEntryDisplayName(lastLog),
+      user: getLogEntryDisplayName(lastLog),
       timestamp: new Date(lastLog.timestamp * 1000).toLocaleString(),
       op: lastLog.op
     };
@@ -25,7 +26,7 @@ function getStatusText() {
 
   if (lastUseData) {
     if (props.tool.currentUserId) {
-      return "In use by " + myState.getUserFullName(props.tool.currentUserId) + "<br>(" + lastUseData.timestamp + ")";
+      return "In use by " + getUserFullName(props.tool.currentUserId) + "<br>(" + lastUseData.timestamp + ")";
     }
 
     return "Last used by " + lastUseData.user + "<br>(" + lastUseData.timestamp + ")";
@@ -66,4 +67,3 @@ function getHeaderClass() {
   </div>
 
 </template>
-

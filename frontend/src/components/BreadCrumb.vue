@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router';
-import { ref, watch } from 'vue';
-import { useStateStore } from '@/stores/state';
+import { computed } from 'vue';
+import { useTools } from '@/composables/useTools';
+import { useUsers } from '@/composables/useUsers';
+import { usePortalUsers } from '@/composables/usePortalUsers';
+import type { Finders } from '@/router';
 
-const myState = useStateStore();
+const { findTool } = useTools();
+const { findUser } = useUsers();
+const { findPortalUser } = usePortalUsers();
+
+const finders: Finders = { findTool, findUser, findPortalUser };
+
 const route = useRoute();
 
-const breadcrumbs = ref(getBreadcrumbs());
-
-watch(() => route.path, () => {
-  breadcrumbs.value = getBreadcrumbs();
-});
+const breadcrumbs = computed(() => getBreadcrumbs());
 
 function getBreadcrumbs() {
   const matched = route.matched;
@@ -24,7 +28,7 @@ function getBreadcrumbs() {
       let label;
       let to;
       if (typeof breadcrumb === 'function') {
-        const result = breadcrumb(route, myState);
+        const result = breadcrumb(route, finders);
         label = result.label;
         to = result.to;
       } else if (typeof breadcrumb === 'object' && breadcrumb !== null && 'label' in breadcrumb && 'to' in breadcrumb) {
@@ -33,7 +37,6 @@ function getBreadcrumbs() {
       }
 
       if (i > 0 && matched[i].path === matched[i-1].path) {
-        // Skip if the path is the same as the previous one
         continue;
       }
 
@@ -58,4 +61,3 @@ function getBreadcrumbs() {
     </ol>
   </nav>
 </template>
-

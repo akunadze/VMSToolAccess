@@ -1,9 +1,8 @@
 <script setup lang="ts">
-  import { onMounted, ref, reactive, computed } from "vue";
-  import { useStateStore } from "@/stores/state"
-  import { useRoute, useRouter } from "vue-router";
-
-  const myState = useStateStore();
+  import { useRoute } from "vue-router";
+  import { useTools } from "@/composables/useTools";
+  import { useUserTopTools } from "@/composables/useToolMutations";
+  import { formatSeconds } from "@/types";
 
   const userId = useRoute().params.id as string;
 
@@ -11,25 +10,10 @@
     throw new Error("User ID is required");
   }
 
-  const selectedUser = myState.findUser(+userId);
-  if (!selectedUser) {
-    throw new Error("User not found");
-  }
+  const { findTool } = useTools();
+  const { data: topToolsData } = useUserTopTools(+userId);
 
-  interface UserTopTools {
-    toolId: number;
-    totalTime: number;
-    totalSpindleTime: number;
-  }
-  const topTools = ref<UserTopTools[]>([]);
-
-  onMounted(() => {
-    if (selectedUser) {
-      myState.getUserTopTools(selectedUser.id).then((x) => {
-        topTools.value = x;
-      });
-    }
-  });
+  const topTools = topToolsData;
 </script>
 
 <template>
@@ -44,9 +28,9 @@
         </thead>
         <tbody>
           <tr v-for="tool in topTools" :key="tool.toolId">
-            <td>{{ myState.findTool(tool.toolId)?.name ?? tool.toolId }}</td>
-            <td>{{ myState.formatSeconds(tool.totalTime) }}</td>
-            <td>{{ myState.formatSeconds(tool.totalSpindleTime) }}</td>
+            <td>{{ findTool(tool.toolId)?.name ?? tool.toolId }}</td>
+            <td>{{ formatSeconds(tool.totalTime) }}</td>
+            <td>{{ formatSeconds(tool.totalSpindleTime) }}</td>
           </tr>
         </tbody>
       </table>

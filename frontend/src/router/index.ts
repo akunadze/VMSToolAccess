@@ -1,5 +1,11 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router'
-import { useStateStore } from "@/stores/state"
+import type { ToolData, UserData, PortalUserData } from '@/types'
+
+export interface Finders {
+    findTool: (id: number) => ToolData | undefined;
+    findUser: (id: number) => UserData | undefined;
+    findPortalUser: (id: number) => PortalUserData | undefined;
+}
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -28,8 +34,8 @@ const router = createRouter({
         {
           path: ':id',
           name: 'tool',
-          meta: {breadcrumb: (route: RouteLocationNormalized, state: ReturnType<typeof useStateStore>) => {
-            const tool = state.findTool(+route.params.id);
+          meta: {breadcrumb: (route: RouteLocationNormalized, finders: Finders) => {
+            const tool = finders.findTool(+route.params.id);
             if (!tool) return {label: 'Unknown Tool', to: ''};
             return {label: tool.name, to: '/tools/' + tool.id};
           }},
@@ -38,7 +44,7 @@ const router = createRouter({
               path: '',
               name: 'details',
               component: () => import('../components/ToolPage.vue'),
-              meta: {breadcrumb: (route: RouteLocationNormalized, state: ReturnType<typeof useStateStore>) => {
+              meta: {breadcrumb: (route: RouteLocationNormalized) => {
                 return {label: 'Details', to: '/tools/' + route.params.id}
               }}
             },
@@ -46,7 +52,7 @@ const router = createRouter({
               path: 'log',
               name: 'tool log',
               component: () => import('../components/ToolLogPage.vue'),
-              meta: {breadcrumb: (route: RouteLocationNormalized, state: ReturnType<typeof useStateStore>) => {
+              meta: {breadcrumb: (route: RouteLocationNormalized) => {
                 return {label: 'Log', to: '/tools/' + route.params.id + '/log'}
               }}
             },
@@ -54,7 +60,7 @@ const router = createRouter({
               path: 'users',
               name: 'tool users',
               component: () => import('../components/ToolUsersPage.vue'),
-              meta: {breadcrumb: (route: RouteLocationNormalized, state: ReturnType<typeof useStateStore>) => {
+              meta: {breadcrumb: (route: RouteLocationNormalized) => {
                 return {label: 'Users', to: '/tools/' + route.params.id + '/users'}
               }}
             },
@@ -76,10 +82,10 @@ const router = createRouter({
         {
           path: ':id',
           name: 'user',
-          meta: {breadcrumb: (route: RouteLocationNormalized, state: ReturnType<typeof useStateStore>) => {
+          meta: {breadcrumb: (route: RouteLocationNormalized, finders: Finders) => {
             if (route.params.id === 'newuser') return {label: 'New User', to: '/users/newuser'}
             if (route.params.id === 'newgroup') return {label: 'New Group', to: '/users/newgroup'}
-            const user = state.findUser(+route.params.id);
+            const user = finders.findUser(+route.params.id);
             if (!user) return {label: 'Unknown User', to: ''};
             return {label: user.fullName, to: '/users/' + user.id};
           }},
@@ -88,7 +94,7 @@ const router = createRouter({
               path: '',
               name: 'user profile',
               component: () => import('../components/UserPage.vue'),
-              meta: {breadcrumb: (route: RouteLocationNormalized, state: ReturnType<typeof useStateStore>) => {
+              meta: {breadcrumb: (route: RouteLocationNormalized) => {
                 return {label: 'Profile', to: '/users/' + route.params.id}
               }}
             },
@@ -96,7 +102,7 @@ const router = createRouter({
               path: 'stats',
               name: 'user stats',
               component: () => import('../components/UserStats.vue'),
-              meta: {breadcrumb: (route: RouteLocationNormalized, state: ReturnType<typeof useStateStore>) => {
+              meta: {breadcrumb: (route: RouteLocationNormalized) => {
                 return {label: 'Stats', to: '/users/' + route.params.id + '/stats'};
               }}
             }
@@ -119,9 +125,9 @@ const router = createRouter({
           path: ':id',
           name: 'portal user',
           component: () => import('../components/PortalUserPage.vue'),
-          meta: {breadcrumb: (route: RouteLocationNormalized, state: ReturnType<typeof useStateStore>) => {
+          meta: {breadcrumb: (route: RouteLocationNormalized, finders: Finders) => {
             if (route.params.id === 'newuser') return {label: 'New User', to: '/portalusers/newuser'}
-            const user = state.findPortalUser(+route.params.id);
+            const user = finders.findPortalUser(+route.params.id);
             if (!user) return {label: 'Unknown User', to: ''};
             return {label: user.name, to: '/portalusers/' + user.id};
           }}
