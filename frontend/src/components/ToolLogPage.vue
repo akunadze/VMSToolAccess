@@ -1,9 +1,10 @@
 <script setup lang="ts">
-  import { ref, watch } from "vue"
-  import { useStateStore, type LogEntryData } from "@/stores/state"
+  import { computed } from "vue"
   import { useRoute } from "vue-router";
-
-  const myState = useStateStore();
+  import { useTools } from "@/composables/useTools";
+  import { useUsers } from "@/composables/useUsers";
+  import { formatSeconds } from "@/types";
+  import type { LogEntryData } from "@/types";
 
   const toolId = useRoute().params.id as string;
 
@@ -11,15 +12,10 @@
     throw new Error("Tool ID is required");
   }
 
-  const tool = ref(myState.tools.find(t => t.id === +toolId));
+  const { findTool } = useTools();
+  const { getLogEntryDisplayName } = useUsers();
 
-  watch(() => myState.tools, () => {
-    tool.value = myState.findTool(+toolId);
-  });
-
-  function getTool() {
-    return tool.value!;
-  }
+  const tool = computed(() => findTool(+toolId));
 
   function formatTimestamp(ts: number) {
       const dt = new Date(ts * 1000);
@@ -28,20 +24,17 @@
 
   function getSpindleTimeText(entry: LogEntryData) {
     if (entry.op === 'out' && entry.spindleTime > 0) {
-      return '(' + myState.formatSeconds(entry.spindleTime) + ')';
+      return '(' + formatSeconds(entry.spindleTime) + ')';
     }
-
     return '';
   }
 
   function onPrint() {
-    if (!getTool() || !getTool().log) {
-      return;
-    }
+    if (!tool.value?.log) return;
 
-    const toolName = getTool().name;
+    const toolName = tool.value.name;
     const contents = [`<html><body><b>${toolName} log</b><table border="1px"><thead><tr><th></th><th>User</th><th>Spindle Time</th><th>Timestamp</th></tr></thead><tbody>`];
-    getTool().log.forEach((x) => {
+    tool.value.log.forEach((x) => {
       let op = "";
       let color = "";
 
@@ -56,7 +49,7 @@
         color = "red";
       }
 
-      const user = myState.getLogEntryDisplayName(x);
+      const user = getLogEntryDisplayName(x);
       const timestamp = formatTimestamp(x.timestamp);
       const spindleTime = getSpindleTimeText(x);
 
@@ -78,7 +71,7 @@
 <template>
   <div class="d-flex flex-column flex-grow-1 border overflow-y-scroll" v-if="tool">
     <ul class="list-group">
-      <li class="list-group-item" v-for="entry in getTool()!.log" v-bind:key="entry.timestamp">
+      <li class="list-group-item" v-for="entry in tool.log" v-bind:key="entry.timestamp">
         <div class="row">
           <div class="col-1">
             <i class="bi bi-arrow-right-circle-fill text-success" v-if="entry.op === 'in'"/>
@@ -86,7 +79,7 @@
             <i class="bi bi-exclamation-circle-fill text-danger" v-if="entry.op === 'err'" />
           </div>
           <div class="col-4">
-            {{myState.getLogEntryDisplayName(entry)}} {{getSpindleTimeText(entry)}}
+            {{getLogEntryDisplayName(entry)}} {{getSpindleTimeText(entry)}}
           </div>
           <div class="col">
             {{formatTimestamp(entry.timestamp)}}

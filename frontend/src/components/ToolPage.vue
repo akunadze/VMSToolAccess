@@ -1,9 +1,10 @@
 <script setup lang="ts">
-  import { useStateStore } from "@/stores/state"
-  import { ref, watch } from "vue";
+  import { ref, computed, watch } from "vue";
   import { useRoute, useRouter } from "vue-router";
-
-  const myState = useStateStore();
+  import { useTools } from "@/composables/useTools";
+  import { useUsers } from "@/composables/useUsers";
+  import { useToolMutations, useToolTopUsers } from "@/composables/useToolMutations";
+  import { formatSeconds } from "@/types";
 
   const toolId = useRoute().params.id as string;
   const router = useRouter();
@@ -12,100 +13,50 @@
     throw new Error("Tool ID is required");
   }
 
-  const tool = ref(myState.findTool(+toolId));
-  const toolName = ref(tool.value ? tool.value.name : "");
+  const { findTool } = useTools();
+  const { getUserFullName, getLogEntryDisplayName, findUser } = useUsers();
+  const { setToolLockout, editToolName } = useToolMutations();
+  const { data: topUsersData } = useToolTopUsers(+toolId);
+
+  const tool = computed(() => findTool(+toolId));
+  const toolName = ref('');
   const toolNameModified = ref(false);
 
-  interface ToolTopUser {
-    userId: number;
-    userTotal: number;
-    spindleTime: number;
-  }
-  const toolTopUsers = ref<ToolTopUser[]>([]);
-  if (tool.value) {
-      myState.getToolTopUsers(tool.value.id).then((topUsers) => {
-        toolTopUsers.value = topUsers;
-      });
-  }
-
-  watch(() => myState.tools, () => {
-    tool.value = myState.findTool(+toolId);
-    if (tool.value) {
-      myState.getToolTopUsers(tool.value.id).then((topUsers) => {
-        toolTopUsers.value = topUsers;
-      });
-    } else {
-      toolTopUsers.value = [];
+  watch(tool, (t) => {
+    if (!toolNameModified.value && t) {
+      toolName.value = t.name;
     }
-    if (!toolNameModified.value && tool.value) {
-      toolName.value = tool.value.name;
-    }
-  });
+  }, { immediate: true });
 
-  function getTool() {
-    return tool.value;
-  }
+  const toolTopUsers = computed(() => topUsersData.value ?? []);
 
   function getLastUserText() {
-    const tool = getTool();
-    if (!tool) {
-      return "";
-    }
-
-    if (tool.log.length > 0) {
-      const userName = myState.getLogEntryDisplayName(tool.log[0]);
-      const dt = new Date(tool.log[0].timestamp * 1000);
+    if (!tool.value) return "";
+    if (tool.value.log.length > 0) {
+      const userName = getLogEntryDisplayName(tool.value.log[0]);
+      const dt = new Date(tool.value.log[0].timestamp * 1000);
       return userName + " (" + dt.toLocaleString() + ")";
-    } else {
-      return "";
     }
+    return "";
   }
 
   function getLastLogOp() {
-    const tool = getTool();
-    if (!tool) {
-      return "";
-    }
-
-    if (tool.log.length > 0) {
-      return tool.log[0].op;
-    }
+    if (!tool.value || tool.value.log.length === 0) return "";
+    return tool.value.log[0].op;
   }
 
   function toggleLockout() {
-    const tool = getTool();
-    if (!tool) {
-      return "";
-    }
-
-    myState.setToolLockout(tool.id, !tool.isLocked).then (() => {
-      myState.refreshData();
-    });
-  }
-
-  function getSpindleTimeText() {
-    const tool = getTool();
-    if (!tool) {
-      return "";
-    }
-
-    return myState.formatSeconds(tool.spindleTime);
+    if (!tool.value) return;
+    setToolLockout.mutate({ toolId: tool.value.id, lockout: !tool.value.isLocked });
   }
 
   function renameTool() {
-    const tool = getTool();
-    if (!tool) {
-      return;
-    }
-
+    if (!tool.value) return;
     if (toolName.value.trim() === "") {
       alert("Tool name cannot be empty");
       return;
     }
-
-    myState.editToolName(tool.id, toolName.value).then(() => {
-      console.log("Tool name updated to: " + toolName.value);
-      myState.refreshData();
+    editToolName.mutateAsync({ toolId: tool.value.id, name: toolName.value }).then(() => {
       toolNameModified.value = false;
     });
   }
@@ -133,16 +84,16 @@
     <div class="input-group m-2 p-0">
       <span class="bg-light border rounded-start p-1 w-25">Status</span>
       <span class="bg-white border p-1 flex-fill">
-        {{ getTool()!.currentUserId ? "In use by " + myState.getUserFullName(getTool()!.currentUserId) : "Idle" }}
+        {{ tool.currentUserId ? "In use by " + getUserFullName(tool.currentUserId) : "Idle" }}
       </span>
-      <button class="btn btn-secondary" @click="toggleLockout">{{getTool()!.isLocked ? "End Lockout" : "Lockout"}}</button>
+      <button class="btn btn-secondary" @click="toggleLockout">{{tool.isLocked ? "End Lockout" : "Lockout"}}</button>
     </div>
     <div class="input-group m-2 p-0">
       <span class="bg-light border rounded-start p-1 w-25">Users</span>
       <span class="bg-white border p-1 flex-fill">
-        {{ getTool()!.users.length }}
+        {{ tool.users.length }}
       </span>
-      <button class="btn btn-secondary" @click="router.push('/tools/' + getTool()!.id + '/users')">Edit</button>
+      <button class="btn btn-secondary" @click="router.push('/tools/' + tool.id + '/users')">Edit</button>
     </div>
     <div class="input-group m-2 p-0 d-flex">
       <span class="bg-light border rounded-start p-1 w-25">Last log entry</span>
@@ -152,16 +103,16 @@
         <i class="bi bi-exclamation-circle-fill text-danger" v-if="getLastLogOp() === 'err'" />
         {{ getLastUserText() }}
       </span>
-      <RouterLink :to='"/tools/" + getTool()!.id + "/log"' class="btn btn-secondary d-flex align-items-center">Full Log</RouterLink>
+      <RouterLink :to='"/tools/" + tool.id + "/log"' class="btn btn-secondary d-flex align-items-center">Full Log</RouterLink>
     </div>
     <div class="input-group m-2 p-0 d-flex">
       <span class="bg-light border rounded-start p-1 w-25 d-flex align-items-center">Utilization</span>
       <span class="bg-white border p-1 flex-fill d-flex align-items-center">
-        {{ getTool()!.utilization }}%
+        {{ tool.utilization }}%
       </span>
       <span class="bg-light border rounded-left p-1 w-25 d-flex align-items-center">Spindle time</span>
       <span class="bg-white border p-1 flex-fill rounded-end d-flex align-items-center">
-        {{ getSpindleTimeText() }}
+        {{ formatSeconds(tool.spindleTime) }}
       </span>
     </div>
     <div class="m-2 d-flex w-100">
@@ -175,9 +126,9 @@
         </thead>
         <tbody>
           <tr v-for="user in toolTopUsers" :key="user.userId">
-            <td>{{ myState.findUser(user.userId)?.fullName ?? user.userId }}</td>
-            <td>{{ myState.formatSeconds(user.userTotal) }}</td>
-            <td>{{ myState.formatSeconds(user.spindleTime) }}</td>
+            <td>{{ findUser(user.userId)?.fullName ?? user.userId }}</td>
+            <td>{{ formatSeconds(user.userTotal) }}</td>
+            <td>{{ formatSeconds(user.spindleTime) }}</td>
           </tr>
         </tbody>
       </table>

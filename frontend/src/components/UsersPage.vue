@@ -1,13 +1,13 @@
 <script setup lang="ts">
-  import { useStateStore } from "@/stores/state"
-  import type { UserData } from "@/stores/state"
+  import { useUsers } from "@/composables/useUsers"
+  import type { UserData } from "@/types"
   import UserList from "@/components/UserList.vue"
 
-  const myState = useStateStore();
+  const { users } = useUsers();
 
   function searchFn(user: UserData, search: string): boolean {
     if (!search || search.length === 0) {
-      return true; // No search term, include all users
+      return true;
     }
 
     const searchLower = search.toLowerCase();
@@ -21,7 +21,7 @@
 
 <template>
   <div>
-    <UserList :users="myState.users" id-field="id" name-field="fullName" group-field="group"
+    <UserList :users="users" id-field="id" name-field="fullName" group-field="group"
       include-groups :link-fn="(x) => '/users/' + x.id" :search-fn="searchFn">
       <button class="btn btn-outline-secondary" @click="$router.push({ name: 'user profile', params: { id: 'newuser' } })">
         <i class="bi bi-plus"></i><i class="bi bi-person" />

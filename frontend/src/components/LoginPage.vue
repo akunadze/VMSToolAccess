@@ -1,9 +1,9 @@
 <script setup lang="ts">
-  import { useStateStore } from "@/stores/state"
   import { ref, onMounted } from "vue"
   import { useRouter } from "vue-router";
+  import { useAuth } from "@/composables/useAuth"
 
-  const myState = useStateStore();
+  const { login } = useAuth();
   const router = useRouter();
 
   const name = ref('');
@@ -11,11 +11,8 @@
   const showError = ref(false);
 
   function handleSubmit() {
-    myState.login(name.value, password.value).then(x => {
-      myState.setLoggedIn(x);
-      myState.setLoggedInUser(x);
-      if (x > 0) {
-        myState.refreshData();
+    login.mutateAsync({ user: name.value, password: password.value }).then(id => {
+      if (id > 0) {
         router.push('/');
       } else {
         showError.value = true;
@@ -24,13 +21,10 @@
   }
 
   onMounted(() => {
-    myState.login('', '').then(x => {
-        myState.setLoggedIn(x);
-        myState.setLoggedInUser(x);
-        if (x) {
-            myState.refreshData();
-            router.push('/');
-        }
+    login.mutateAsync({ user: '', password: '' }).then(id => {
+      if (id > 0) {
+        router.push('/');
+      }
     });
   });
 </script>
@@ -49,4 +43,3 @@
     <button class="btn btn-primary mt-2" type="submit">Login</button>
   </form>
 </template>
-

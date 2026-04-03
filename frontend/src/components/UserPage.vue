@@ -1,13 +1,13 @@
 <script setup lang="ts">
-  import type { UserData } from "@/stores/state"
-  import { onMounted, ref, reactive, computed } from "vue";
-  import { useTemplateRef, type Ref } from "vue";
-  import { useStateStore } from "@/stores/state"
+  import type { UserData } from "@/types"
+  import { onMounted, ref, reactive, computed, watch } from "vue";
+  import { useTemplateRef } from "vue";
+  import { useUsers } from "@/composables/useUsers"
+  import { useUserMutations } from "@/composables/useUserMutations"
   import { useRoute, useRouter } from "vue-router";
   import UserList from "@/components/UserList.vue"
   import { Modal } from "bootstrap"
 
-  const myState = useStateStore();
   const router = useRouter();
 
   const userId = useRoute().params.id as string;
@@ -16,38 +16,48 @@
     throw new Error("User ID is required");
   }
 
-  let selectedUser:UserData = {
+  const { users, findUser } = useUsers();
+  const { addUser, editUser, deleteUser } = useUserMutations();
+
+  let newUser = false;
+  if (userId === 'newuser') {
+    newUser = true;
+  } else if (userId === 'newgroup') {
+    newUser = true;
+  }
+
+  const selectedUser = reactive<UserData>({
     id: 0,
     fullName: '',
     email: '',
     card: '',
     doorCard: '',
-    group: false,
+    group: userId === 'newgroup',
     members: []
-  };
-  let newUser = false;
-
-  if (userId === 'newuser') {
-    newUser = true;
-  } else if (userId === 'newgroup') {
-    newUser = true;
-    selectedUser.group = true;
-  } else {
-    newUser = false;
-    const foundUser = myState.findUser(+userId);
-    if (!foundUser) {
-      throw new Error("User not found");
-    }
-    selectedUser = foundUser;
-  }
+  });
 
   const data = reactive({
-    name: selectedUser.fullName,
-    email: selectedUser.email,
-    card: selectedUser.card,
-    doorCard: selectedUser.doorCard,
+    name: '',
+    email: '',
+    card: '',
+    doorCard: '',
     isModified: false
   });
+
+  if (!newUser) {
+    const foundUser = computed(() => findUser(+userId));
+    watch(foundUser, (user) => {
+      if (user) {
+        Object.assign(selectedUser, user);
+        if (!data.isModified) {
+          data.name = user.fullName;
+          data.email = user.email;
+          data.card = user.card;
+          data.doorCard = user.doorCard;
+        }
+      }
+    }, { immediate: true });
+  }
 
   const grouplist = useTemplateRef('group-members')
 
@@ -69,7 +79,7 @@
     let message = "You have ";
     if (addedUsers.length > 0) {
       message += "added:<br>";
-      addedUsers.forEach(x => message += "&nbsp;&nbsp;&nbsp;&nbsp;" + myState.users.find(u => u.id === x)?.fullName + "<br />")
+      addedUsers.forEach(x => message += "&nbsp;&nbsp;&nbsp;&nbsp;" + users.value.find(u => u.id === x)?.fullName + "<br />")
     }
 
     if (removedUsers.length > 0) {
@@ -78,7 +88,7 @@
       }
 
       message += "removed:<br>";
-      removedUsers.forEach(x => message += "&nbsp;&nbsp;&nbsp;&nbsp;" + myState.users.find(u => u.id === x)?.fullName + "<br />")
+      removedUsers.forEach(x => message += "&nbsp;&nbsp;&nbsp;&nbsp;" + users.value.find(u => u.id === x)?.fullName + "<br />")
     }
 
     confirmMsg.value = message
@@ -88,11 +98,8 @@
 
   function onDelete() {
     if (selectedUser.id > 0) {
-      myState.deleteUser(selectedUser.id).then(res => {
-        if (res) {
-          myState.refreshData();
-          router.back();
-        }
+      deleteUser.mutateAsync(selectedUser.id).then(() => {
+        router.back();
       });
     }
   }
@@ -104,9 +111,7 @@
   function onSaveChanges() {
     confirmDlg.value?.hide();
 
-    if (!selectedUser) {
-      return;
-    }
+    if (!selectedUser) return;
 
     selectedUser.fullName = data.name;
     selectedUser.email = data.email;
@@ -118,18 +123,12 @@
     }
 
     if (newUser) {
-      myState.addUser(selectedUser).then(res => {
-        if (res) {
-          myState.refreshData();
-          router.back();
-        }
+      addUser.mutateAsync(selectedUser).then(() => {
+        router.back();
       });
     } else {
-      myState.editUser(selectedUser).then(res => {
-        if (res) {
-          myState.refreshData();
-          router.back();
-        }
+      editUser.mutateAsync(selectedUser).then(() => {
+        router.back();
       });
     }
   }
@@ -184,7 +183,7 @@
 
     <template v-if="selectedUser.group">
       <label class="form-label mt-2">Members:</label>
-      <UserList ref="group-members" :users="myState.users" :selectedUsers="selectedUser.members"
+      <UserList ref="group-members" :users="users" :selectedUsers="selectedUser.members"
         id-field="id" name-field="fullName" group-field="group"
         :use-links="false" :include-groups="false">
       </UserList>

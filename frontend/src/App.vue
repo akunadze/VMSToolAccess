@@ -1,26 +1,23 @@
 <script setup lang="ts">
   import { RouterView, useRouter } from 'vue-router'
-  import { onMounted } from 'vue';
-  import { useStateStore } from "@/stores/state"
+  import { useAuthStore } from "@/stores/auth"
+  import { useAuth } from "@/composables/useAuth"
+  import { usePortalUsers } from "@/composables/usePortalUsers"
   import Breadcrumb from "@/components/BreadCrumb.vue"
 
-  const myState = useStateStore();
+  const auth = useAuthStore();
+  const { logout } = useAuth();
+  const { getPortalUsername } = usePortalUsers();
   const router = useRouter();
-
-  onMounted(async () => {
-    myState.refreshData();
-  })
 
   function onChangePassword() {
   }
 
   function onLogout() {
-    myState.logout().then(() => {
+    logout.mutateAsync().then(() => {
       router.push('/login');
     });
   }
-
-
 </script>
 
 <template>
@@ -31,12 +28,12 @@
       </div>
     </div>
 
-    <div class="d-flex flex-row" :v-if="myState.isLoggedIn()">
+    <div class="d-flex flex-row" :v-if="auth.isLoggedIn()">
       <Breadcrumb class="flex-grow-1" />
       <div class="dropdown">
         <i class="bi bi-person-circle" style="font-size: 1.5rem;" data-bs-toggle="dropdown"></i>
         <ul class="dropdown-menu pt-0">
-          <li class="text-center bg-secondary text-white rounded-top">Welcome {{ myState.getPortalUsername(myState.loggedInUserId) }}</li>
+          <li class="text-center bg-secondary text-white rounded-top">Welcome {{ getPortalUsername(auth.loggedInUserId) }}</li>
           <li><a class="dropdown-item" href="#" @click="onChangePassword">Change Password</a></li>
           <li><a class="dropdown-item" href="#" @click="onLogout">Logout</a></li>
         </ul>
@@ -64,4 +61,3 @@ input::-webkit-inner-spin-button {
   margin: 0;
 }
 </style>
-

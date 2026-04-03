@@ -1,12 +1,13 @@
 <script setup lang="ts">
   import { onMounted, ref, computed } from "vue";
   import { useTemplateRef } from "vue";
-  import { useStateStore } from "@/stores/state"
+  import { useTools } from "@/composables/useTools";
+  import { useUsers } from "@/composables/useUsers";
+  import { useToolMutations } from "@/composables/useToolMutations";
   import { useRoute, useRouter } from "vue-router";
   import UserList from "@/components/UserList.vue"
   import { Modal } from "bootstrap"
 
-  const myState = useStateStore();
   const router = useRouter();
 
   const toolId = useRoute().params.id as string;
@@ -15,9 +16,11 @@
     throw new Error("Tool ID is required");
   }
 
-  function getTool() {
-    return myState.tools.find(t => t.id === +toolId);
-  }
+  const { findTool } = useTools();
+  const { users, findUser } = useUsers();
+  const { editToolUsers } = useToolMutations();
+
+  const tool = computed(() => findTool(+toolId));
 
   const grouplist = useTemplateRef('group-members')
 
@@ -33,18 +36,15 @@
       return;
     }
 
-    const tool = getTool();
-    if (!tool) {
-      return;
-    }
+    if (!tool.value) return;
 
-    const addedUsers = grouplist.value?.newSelectedUsers.filter(x => !tool.users.includes(Number(x)));
-    const removedUsers = tool.users.filter(x => !grouplist.value?.newSelectedUsers.includes(Number(x)));
+    const addedUsers = grouplist.value?.newSelectedUsers.filter(x => !tool.value!.users.includes(Number(x)));
+    const removedUsers = tool.value.users.filter(x => !grouplist.value?.newSelectedUsers.includes(Number(x)));
 
     let message = "You have ";
     if (addedUsers.length > 0) {
       message += "added:<br>";
-      addedUsers.forEach(x => message += "&nbsp;&nbsp;&nbsp;&nbsp;" + myState.users.find(u => u.id === x)?.fullName + "<br />")
+      addedUsers.forEach(x => message += "&nbsp;&nbsp;&nbsp;&nbsp;" + findUser(x)?.fullName + "<br />")
     }
 
     if (removedUsers.length > 0) {
@@ -53,7 +53,7 @@
       }
 
       message += "removed:<br>";
-      removedUsers.forEach(x => message += "&nbsp;&nbsp;&nbsp;&nbsp;" + myState.users.find(u => u.id === x)?.fullName + "<br />")
+      removedUsers.forEach(x => message += "&nbsp;&nbsp;&nbsp;&nbsp;" + findUser(x)?.fullName + "<br />")
     }
 
     message += "<br>Is this correct?"
@@ -66,16 +66,10 @@
   function onSaveChanges() {
     confirmDlg.value?.hide();
 
-    const tool = getTool();
-    if (!tool || !grouplist.value?.newSelectedUsers) {
-      return;
-    }
+    if (!tool.value || !grouplist.value?.newSelectedUsers) return;
 
-    myState.editToolUsers(tool.id, grouplist.value?.newSelectedUsers).then(res => {
-      if (res) {
-        myState.refreshData();
-        router.back();
-      }
+    editToolUsers.mutateAsync({ toolId: tool.value.id, userIds: grouplist.value.newSelectedUsers }).then(() => {
+      router.back();
     });
   }
 
@@ -86,11 +80,11 @@
 </script>
 
 <template>
-  <form v-if="getTool()" class="border rounded d-flex flex-column flex-grow-1 ml-2 mt-2 p-2 h-100" @submit.prevent="confirmApply">
+  <form v-if="tool" class="border rounded d-flex flex-column flex-grow-1 ml-2 mt-2 p-2 h-100" @submit.prevent="confirmApply">
 
-    <label class="form-label mt-2">{{getTool()!.name}} users:</label>
-    <UserList ref="group-members" :users="myState.users" id-field="id" name-field="fullName"
-      :selectedUsers="getTool()!.users" :use-links="false">
+    <label class="form-label mt-2">{{tool.name}} users:</label>
+    <UserList ref="group-members" :users="users" id-field="id" name-field="fullName"
+      :selectedUsers="tool.users" :use-links="false">
     </UserList>
 
     <div class="d-flex">
