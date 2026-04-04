@@ -7,9 +7,7 @@ import App from './App.vue'
 import router from './router'
 
 import "bootstrap/dist/css/bootstrap.min.css"
-import "bootstrap/dist/css/bootstrap-utilities.min.css"
-import "bootstrap-icons/font/bootstrap-icons.min.css"
-import 'bootstrap-icons/font/bootstrap-icons.css'
+import "bootstrap-icons/font/bootstrap-icons.css"
 import "bootstrap"
 
 console.log('Creating app...');
@@ -50,19 +48,20 @@ function onSocketMessage(ev: MessageEvent) {
   }
 }
 
+let retryCount = 0;
+
 function onSocketClose() {
   console.log("Websocket closed");
-  let ws2 = null;
-  const timerId = setInterval(function () {
-      console.log("Trying to reconnect web socket");
-      ws2 = new WebSocket(url);
-
-      if (ws2) {
-        clearInterval(timerId);
-        ws2.onmessage = onSocketMessage;
-        ws2.onclose = onSocketClose;
-      }
-  }, 1000);
+  const delay = Math.min(1000 * 2 ** retryCount, 30000);
+  retryCount++;
+  if (retryCount > 12) return; // give up after ~30s max interval reached several times
+  setTimeout(() => {
+    console.log("Trying to reconnect web socket");
+    const ws2 = new WebSocket(url);
+    ws2.onopen = () => { retryCount = 0; };
+    ws2.onmessage = onSocketMessage;
+    ws2.onclose = onSocketClose;
+  }, delay);
 }
 
 const ws = new WebSocket(url);

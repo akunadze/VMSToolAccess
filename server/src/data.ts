@@ -185,20 +185,20 @@ export class Response {
     static mkOk() {
         let obj = new Response();
         obj.data = {};
-        obj.error = null;
+        obj.error = undefined;
         return obj;
     }
 
     static mkData(data: any) {
         let obj = new Response();
         obj.data = data;
-        obj.error = null;
+        obj.error = undefined;
         return obj;
     }
 
-    static mkErr(message: string) {
+    static mkErr(message: string | undefined) {
         let obj = new Response();
-        obj.data = null;
+        obj.data = undefined;
         obj.error = message;
         return obj;
     }
