@@ -6,6 +6,7 @@ var stmtGetUsers: sqlite3.Statement;
 var stmtGetGroupUsers: sqlite3.Statement;
 var stmtGetToolUsers: sqlite3.Statement;
 var stmtGetToolLog: sqlite3.Statement;
+var stmtGetLastToolLog: sqlite3.Statement;
 var stmtAddTool: sqlite3.Statement;
 var stmtDeleteTool: sqlite3.Statement;
 var stmtEditTool: sqlite3.Statement;
@@ -155,7 +156,7 @@ export class Tool {
     id: number;
     name: string;
     users: number[];
-    log: LogEntry[];
+    lastEntry?: LogEntry;
     currentUserId: number;
     mac: string;
     offline: boolean;
@@ -170,7 +171,6 @@ export class Tool {
         this.mac = mac;
         this.isLocked = (lockedout === 1);
         this.users = [];
-        this.log = [];
         this.currentUserId = 0;
         this.offline = true;
         this.utilization = 0;
@@ -309,10 +309,17 @@ export function initData() {
             WHERE toolId = ?
         `);
         stmtGetToolLog = db.prepare(`
-            SELECT userId, op, timestamp, card, spindleTime 
-            FROM AccessLog 
-            WHERE toolId = ? 
+            SELECT userId, op, timestamp, card, spindleTime
+            FROM AccessLog
+            WHERE toolId = ?
             ORDER BY timestamp DESC
+        `);
+        stmtGetLastToolLog = db.prepare(`
+            SELECT userId, op, timestamp, card, spindleTime
+            FROM AccessLog
+            WHERE toolId = ?
+            ORDER BY timestamp DESC
+            LIMIT 1
         `);
         stmtGetUsers = db.prepare(`
             SELECT id, fullName, email, card, doorCard, isGroup 
@@ -463,9 +470,9 @@ export function getTools() {
         return result.map(x => {
             const newTool = new Tool(x.id, x.name, x.mac, x.lockedout, x.spindleTime);
             newTool.users = stmtGetToolUsers.all(x.id).map((u: ToolUserData) => u.userId);
-            const logEntries = stmtGetToolLog.all(x.id) as LogEntryData[];
-            newTool.log = logEntries.map(l => new LogEntry(l.userId, l.timestamp, l.op, l.card, l.spindleTime));
-            newTool.currentUserId = newTool.log.length > 0 && newTool.log[0].op === "in" ? newTool.log[0].userId : 0;
+            const lastEntry = stmtGetLastToolLog.get(x.id) as LogEntryData | undefined;
+            newTool.lastEntry = lastEntry ? new LogEntry(lastEntry.userId, lastEntry.timestamp, lastEntry.op, lastEntry.card, lastEntry.spindleTime) : undefined;
+            newTool.currentUserId = newTool.lastEntry?.op === "in" ? newTool.lastEntry.userId : 0;
             const utilResult = stmtGetToolUtil.get(x.id) as UtilizationData;
             newTool.utilization = utilResult.util;
             return newTool;
@@ -482,6 +489,16 @@ export function getToolsUtilStats() {
         return result;
     } catch(e) {
         console.log('Error in getToolsUtilStats: ' + e);
+        return [];
+    }
+}
+
+export function getToolLog(toolId: number) {
+    try {
+        const result = stmtGetToolLog.all(toolId) as LogEntryData[];
+        return result.map(l => new LogEntry(l.userId, l.timestamp, l.op, l.card, l.spindleTime));
+    } catch(e) {
+        console.log('Error in getToolLog: ' + e);
         return [];
     }
 }

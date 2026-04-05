@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import type { LogEntryData } from '@/types'
 
 export function useToolMutations() {
     const queryClient = useQueryClient();
@@ -74,6 +75,19 @@ export function useUserTopTools(userId: number) {
             const json = await resp.json();
             if (!resp.ok || json.error) throw new Error(json.error ?? 'Failed to fetch top tools');
             return json.data as { toolId: number; totalTime: number; totalSpindleTime: number }[];
+        },
+        staleTime: Infinity,
+    });
+}
+
+export function useToolLog(toolId: number) {
+    return useQuery({
+        queryKey: ['toolLog', toolId],
+        queryFn: async () => {
+            const resp = await fetch(`/api/tools/${toolId}/log`);
+            const json = await resp.json();
+            if (!resp.ok || json.error) throw new Error(json.error ?? 'Failed to fetch tool log');
+            return json.data as LogEntryData[];
         },
         staleTime: Infinity,
     });

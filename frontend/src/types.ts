@@ -10,7 +10,7 @@ export interface ToolData {
     id: number;
     name: string;
     users: number[];
-    log: LogEntryData[];
+    lastEntry?: LogEntryData;
     currentUserId: number;
     mac: string;
     offline: boolean;

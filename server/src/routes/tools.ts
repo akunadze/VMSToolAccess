@@ -101,6 +101,21 @@ export function createToolsRouter(sendUpdate: () => void): Router {
     res.json(ApiResponse.mkData(result));
   });
 
+  router.get('/tools/:id/log', requireAuth, (req, res) => {
+    const toolId = parseInt(req.params.id, 10);
+    if (isNaN(toolId)) {
+      res.status(400).json(ApiResponse.mkErr("Invalid tool ID"));
+      return;
+    }
+    const tools: Tool[] = data.getTools();
+    if (!tools.find(x => x.id === toolId)) {
+      res.status(404).json(ApiResponse.mkErr("Tool not found"));
+      return;
+    }
+    const log = data.getToolLog(toolId);
+    res.json(ApiResponse.mkData(log));
+  });
+
   router.post('/tools/topusers', requireAuth, (req, res) => {
     const tools: Tool[] = data.getTools();
     const toolId = req.body.toolId;

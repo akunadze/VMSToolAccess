@@ -3,6 +3,7 @@
   import { useRoute } from "vue-router";
   import { useTools } from "@/composables/useTools";
   import { useUsers } from "@/composables/useUsers";
+  import { useToolLog } from "@/composables/useToolMutations";
   import { formatSeconds } from "@/types";
   import type { LogEntryData } from "@/types";
 
@@ -14,8 +15,10 @@
 
   const { findTool } = useTools();
   const { getLogEntryDisplayName } = useUsers();
+  const { data: logData } = useToolLog(+toolId);
 
   const tool = computed(() => findTool(+toolId));
+  const log = computed(() => logData.value ?? []);
 
   function formatTimestamp(ts: number) {
       const dt = new Date(ts * 1000);
@@ -30,11 +33,11 @@
   }
 
   function onPrint() {
-    if (!tool.value?.log) return;
+    if (!log.value.length) return;
 
-    const toolName = tool.value.name;
+    const toolName = tool.value?.name ?? '';
     const contents = [`<html><body><b>${toolName} log</b><table border="1px"><thead><tr><th></th><th>User</th><th>Spindle Time</th><th>Timestamp</th></tr></thead><tbody>`];
-    tool.value.log.forEach((x) => {
+    log.value.forEach((x) => {
       let op = "";
       let color = "";
 
@@ -71,7 +74,7 @@
 <template>
   <div class="d-flex flex-column flex-grow-1 border overflow-y-scroll" v-if="tool">
     <ul class="list-group">
-      <li class="list-group-item" v-for="entry in tool.log" v-bind:key="entry.timestamp">
+      <li class="list-group-item" v-for="entry in log" v-bind:key="entry.timestamp">
         <div class="row">
           <div class="col-1">
             <i class="bi bi-arrow-right-circle-fill text-success" v-if="entry.op === 'in'"/>

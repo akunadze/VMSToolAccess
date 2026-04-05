@@ -31,18 +31,14 @@
   const toolTopUsers = computed(() => topUsersData.value ?? []);
 
   function getLastUserText() {
-    if (!tool.value) return "";
-    if (tool.value.log.length > 0) {
-      const userName = getLogEntryDisplayName(tool.value.log[0]);
-      const dt = new Date(tool.value.log[0].timestamp * 1000);
-      return userName + " (" + dt.toLocaleString() + ")";
-    }
-    return "";
+    if (!tool.value?.lastEntry) return "";
+    const userName = getLogEntryDisplayName(tool.value.lastEntry);
+    const dt = new Date(tool.value.lastEntry.timestamp * 1000);
+    return userName + " (" + dt.toLocaleString() + ")";
   }
 
   function getLastLogOp() {
-    if (!tool.value || tool.value.log.length === 0) return "";
-    return tool.value.log[0].op;
+    return tool.value?.lastEntry?.op ?? "";
   }
 
   function toggleLockout() {

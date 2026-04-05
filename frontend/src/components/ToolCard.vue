@@ -9,12 +9,11 @@ const props = defineProps<{
 const { getUserFullName, getLogEntryDisplayName } = useUsers();
 
 function getLastUseData() {
-  if (props.tool.log.length > 0) {
-    const lastLog = props.tool.log[0];
+  if (props.tool.lastEntry) {
     return {
-      user: getLogEntryDisplayName(lastLog),
-      timestamp: new Date(lastLog.timestamp * 1000).toLocaleString(),
-      op: lastLog.op
+      user: getLogEntryDisplayName(props.tool.lastEntry),
+      timestamp: new Date(props.tool.lastEntry.timestamp * 1000).toLocaleString(),
+      op: props.tool.lastEntry.op
     };
   } else {
     return null;
