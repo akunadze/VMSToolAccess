@@ -35,3 +35,5 @@ server/server.key
 server/src/**/*.js
 server/src/**/*.js.map
 server/data/toolaccess.db
+.claude/settings.local.json
+firmware/dependencies.lock

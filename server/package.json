@@ -5,7 +5,8 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon -e ts --exec \"npm run compile\" src/server.ts",
-    "compile": "tsc"
+    "compile": "tsc",
+    "db:generate": "drizzle-kit generate"
   },
   "author": "Alex Kunadze",
   "license": "MIT",
@@ -14,6 +15,7 @@
     "better-sqlite3": "^11.7.0",
     "bufferutil": "^4.0.8",
     "cookie-parser": "^1.4.7",
+    "drizzle-orm": "^0.45.2",
     "eslint": "^9.17.0",
     "express": "^4.21.2",
     "express-rate-limit": "^8.3.2",
@@ -34,6 +36,7 @@
     "@types/node": "^22.10.2",
     "@types/ws": "^8.5.13",
     "css-loader": "^7.1.2",
+    "drizzle-kit": "^0.31.10",
     "html-webpack-plugin": "^5.6.3",
     "mini-css-extract-plugin": "^2.9.2",
     "morgan-body": "^2.6.9",
