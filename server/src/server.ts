@@ -13,7 +13,6 @@ import { watchdog, latestVersion, setLatestVersion } from "./appState";
 import { createAuthRouter } from "./routes/auth";
 import { createToolsRouter } from "./routes/tools";
 import { createUsersRouter } from "./routes/users";
-import { createPortalUsersRouter } from "./routes/portalUsers";
 import { createEnrollRouter } from "./routes/enroll";
 import { createFirmwareRouter } from "./routes/firmware";
 
@@ -66,10 +65,9 @@ function sendUpdateNotification() {
 }
 
 // --- API routes (#16: requireAuth middleware applied inside each router) ---
-app.use('/api', createAuthRouter());
+app.use('/api', createAuthRouter(sendUpdateNotification));
 app.use('/api', createToolsRouter(sendUpdateNotification));
 app.use('/api', createUsersRouter(sendUpdateNotification));
-app.use('/api', createPortalUsersRouter(sendUpdateNotification));
 app.use('/api', createEnrollRouter());
 app.use('/api', createFirmwareRouter());
 

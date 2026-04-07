@@ -480,7 +480,7 @@ export function deletePortalUser(userId: number): boolean {
   }
 }
 
-export function addLogEntry(toolId: number, userId: number, time: number, op: string, card: string, spindleTime: number): boolean {
+export function addLogEntry(toolId: number, userId: number | null, time: number, op: string, card: string | null, spindleTime: number): boolean {
   try {
     db.insert(accessLogTable).values({ toolId, userId, timestamp: time, op, card, spindleTime }).run();
     return true;

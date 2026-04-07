@@ -2,19 +2,13 @@ import { Router } from 'express';
 import { User, Response as ApiResponse } from '../data';
 import * as data from '../data';
 import { requireAuth } from '../middleware/auth';
-
-const CARD_REGEX = /^[0-9a-fA-F]{1,20}$/;
+import { validateBody, UserTopToolsSchema, AddUserSchema, EditUserSchema, DeleteSchema } from '../schemas';
 
 export function createUsersRouter(sendUpdate: () => void): Router {
   const router = Router();
 
-  router.post('/users/toptools', requireAuth, (req, res) => {
-    const userId = req.body.userId;
-
-    if (!userId) {
-      res.status(400).json(ApiResponse.mkErr("Malformed request"));
-      return;
-    }
+  router.post('/users/toptools', requireAuth, validateBody(UserTopToolsSchema), (req, res) => {
+    const { userId } = req.body;
 
     const users: User[] = data.getUsers();
     if (!users.find(x => x.id === userId)) {
@@ -33,29 +27,10 @@ export function createUsersRouter(sendUpdate: () => void): Router {
     res.json(ApiResponse.mkData(users));
   });
 
-  router.post('/user/add', requireAuth, (req, res) => {
+  router.post('/user/add', requireAuth, validateBody(AddUserSchema), (req, res) => {
     console.log('api/user/add called.');
-    const userName = req.body.name;
-    const userEmail = req.body.email;
-    const userCard = req.body.card;
-    const doorCard = req.body.doorCard;
-    const groupMembers = req.body.members;
+    const { name: userName, email: userEmail, card: userCard, doorCard, members: groupMembers } = req.body;
     const isGroup = Array.isArray(groupMembers);
-
-    if (!userName || (isGroup && groupMembers.length > 0 && isNaN(groupMembers[0]))) {
-      res.status(400).json(ApiResponse.mkErr("Malformed request"));
-      return;
-    }
-
-    if (userCard && !CARD_REGEX.test(userCard)) {
-      res.status(400).json(ApiResponse.mkErr("Invalid card format"));
-      return;
-    }
-
-    if (doorCard && !CARD_REGEX.test(doorCard)) {
-      res.status(400).json(ApiResponse.mkErr("Invalid door card format"));
-      return;
-    }
 
     if (data.addUser(userName, userEmail, userCard, doorCard, isGroup, groupMembers)) {
       res.json(ApiResponse.mkOk());
@@ -66,31 +41,11 @@ export function createUsersRouter(sendUpdate: () => void): Router {
     sendUpdate();
   });
 
-  router.post('/user/edit', requireAuth, (req, res) => {
+  router.post('/user/edit', requireAuth, validateBody(EditUserSchema), (req, res) => {
     console.log('api/user/edit called.');
     const users: User[] = data.getUsers();
-    const userId = req.body.id;
-    const userName = req.body.name;
-    const userEmail = req.body.email;
-    const userCard = req.body.card;
-    const doorCard = req.body.doorCard;
-    const groupMembers = req.body.members;
+    const { id: userId, name: userName, email: userEmail, card: userCard, doorCard, members: groupMembers } = req.body;
     const isGroup = Array.isArray(groupMembers);
-
-    if (!userId || !userName || (isGroup && groupMembers.length > 0 && isNaN(groupMembers[0]))) {
-      res.status(400).json(ApiResponse.mkErr("Malformed request"));
-      return;
-    }
-
-    if (userCard && !CARD_REGEX.test(userCard)) {
-      res.status(400).json(ApiResponse.mkErr("Invalid card format"));
-      return;
-    }
-
-    if (doorCard && !CARD_REGEX.test(doorCard)) {
-      res.status(400).json(ApiResponse.mkErr("Invalid door card format"));
-      return;
-    }
 
     const user = users.find(x => x.id === userId);
     if (!user) {
@@ -108,10 +63,10 @@ export function createUsersRouter(sendUpdate: () => void): Router {
     sendUpdate();
   });
 
-  router.post('/user/delete', requireAuth, (req, res) => {
+  router.post('/user/delete', requireAuth, validateBody(DeleteSchema), (req, res) => {
     console.log('api/user/delete called.');
     const users: User[] = data.getUsers();
-    const userId = req.body.id;
+    const { id: userId } = req.body;
 
     const user = users.find(x => x.id === userId);
     if (!user) {

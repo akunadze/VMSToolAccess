@@ -1,19 +1,13 @@
 import { Router } from 'express';
 import { Response as ApiResponse } from '../data';
 import * as data from '../data';
-
-const CARD_REGEX = /^[0-9a-fA-F]|\:{1,20}$/;
+import { validateBody, EnrollQuerySchema, EnrollRegisterSchema } from '../schemas';
 
 export function createEnrollRouter(): Router {
   const router = Router();
 
-  router.post('/enroll/query', (req, res) => {
-    const doorCard = req.body.doorCard;
-
-    if (!doorCard || !CARD_REGEX.test(doorCard)) {
-      res.status(400).json(ApiResponse.mkErr("Malformed request"));
-      return;
-    }
+  router.post('/enroll/query', validateBody(EnrollQuerySchema), (req, res) => {
+    const { doorCard } = req.body;
 
     const result = data.findDoorCardName(doorCard);
 
@@ -24,19 +18,8 @@ export function createEnrollRouter(): Router {
     }
   });
 
-  router.post('/enroll/register', (req, res) => {
-    const doorCard = req.body.doorCard;
-    const toolCard = req.body.toolCard;
-
-    if (!doorCard || !toolCard) {
-      res.status(400).json(ApiResponse.mkErr("Malformed request"));
-      return;
-    }
-
-    if (!CARD_REGEX.test(doorCard) || !CARD_REGEX.test(toolCard)) {
-      res.status(400).json(ApiResponse.mkErr("Invalid card format"));
-      return;
-    }
+  router.post('/enroll/register', validateBody(EnrollRegisterSchema), (req, res) => {
+    const { doorCard, toolCard } = req.body;
 
     if (data.isToolCardRegistered(toolCard)) {
       res.status(200).json(ApiResponse.mkErr("Tool card already registered"));

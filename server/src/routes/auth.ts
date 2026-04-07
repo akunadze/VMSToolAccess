@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import rateLimit from 'express-rate-limit';
-import { Response as ApiResponse } from '../data';
+import { Response as ApiResponse, PortalUser } from '../data';
 import * as data from '../data';
 import { requireAuth, audit } from '../middleware/auth';
+import { validateBody, LoginSchema, ChangePasswordSchema, 
+         AddPortalUserSchema, EditPortalUserSchema, DeleteSchema } from '../schemas';
 
 const saltRounds = 10;
 
@@ -15,10 +17,10 @@ const loginLimiter = rateLimit({
   message: ApiResponse.mkErr('Too many login attempts, please try again later'),
 });
 
-export function createAuthRouter(): Router {
+export function createAuthRouter(sendUpdate: () => void): Router {
   const router = Router();
 
-  router.post('/login', loginLimiter, (req, res) => {
+  router.post('/login', loginLimiter, validateBody(LoginSchema), (req, res) => {
     const user = req.body.user;
     const pass = req.body.password;
 
@@ -45,15 +47,9 @@ export function createAuthRouter(): Router {
     }
   });
 
-  router.post('/changePassword', requireAuth, (req, res) => {
+  router.post('/changePassword', requireAuth, validateBody(ChangePasswordSchema), (req, res) => {
     const userId = req.session.userId;
-    const oldPass = req.body.oldPass;
-    const newPass = req.body.newPass;
-
-    if (!oldPass || !newPass) {
-      res.status(400).json(ApiResponse.mkErr("Malformed request"));
-      return;
-    }
+    const { oldPass, newPass } = req.body;
 
     const portalUsers = data.getPortalUsers();
     const portalUser = portalUsers.find(x => x.id === userId);
@@ -82,5 +78,73 @@ export function createAuthRouter(): Router {
     res.status(200).json(ApiResponse.mkOk());
   });
 
+  router.get('/portalusers', requireAuth, (req, res) => {
+    console.log('api/portalusers called');
+    const portalUsers: PortalUser[] = data.getPortalUsers();
+    // Map to a new array without the password field (#9: avoid mutating cached objects)
+    const safe = portalUsers.map(u => ({ id: u.id, name: u.name }));
+    res.json(ApiResponse.mkData(safe));
+  });
+
+  router.post('/portaluser/add', requireAuth, validateBody(AddPortalUserSchema), (req, res) => {
+    console.log('api/portaluser/add called.');
+    const { name: userName, password: userPassword } = req.body;
+
+    if (data.addPortalUser(userName, userPassword)) {
+      audit(req, `Added portal user ${userName}`);
+      res.json(ApiResponse.mkOk());
+    } else {
+      res.json(ApiResponse.mkErr("Internal error"));
+    }
+
+    sendUpdate();
+  });
+
+  router.post('/portaluser/edit', requireAuth, validateBody(EditPortalUserSchema), (req, res) => {
+    console.log('api/portaluser/edit called.');
+    const { id: userId, name: userName, password: newPassword } = req.body;
+
+    const portalUsers: PortalUser[] = data.getPortalUsers();
+    const user = portalUsers.find(x => x.id === userId);
+
+    if (!user) {
+      res.status(404).json(ApiResponse.mkErr("User not found"));
+      return;
+    }
+
+    const passHash = newPassword ? bcrypt.hashSync(newPassword, saltRounds) : user.password;
+
+    if (data.editPortalUser(userId, userName, passHash)) {
+      audit(req, `Edited portal user ${userName}(${userId})`);
+      res.json(ApiResponse.mkOk());
+    } else {
+      res.json(ApiResponse.mkErr("Internal error"));
+    }
+
+    sendUpdate();
+  });
+
+  router.post('/portaluser/delete', requireAuth, validateBody(DeleteSchema), (req, res) => {
+    console.log('api/portaluser/delete called.');
+    const { id: userId } = req.body;
+    const portalUsers: PortalUser[] = data.getPortalUsers();
+    const user = portalUsers.find(x => x.id === userId);
+
+    if (!user) {
+      res.status(404).json(ApiResponse.mkErr("User not found"));
+      return;
+    }
+
+    if (data.deletePortalUser(userId)) {
+      audit(req, `Deleted portal user ${user.name}(${userId})`);
+      res.json(ApiResponse.mkOk());
+    } else {
+      res.json(ApiResponse.mkErr("Internal error"));
+    }
+
+    sendUpdate();
+  });
+  
   return router;
 }
+

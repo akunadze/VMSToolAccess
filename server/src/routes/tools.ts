@@ -3,22 +3,16 @@ import { Tool, User, Response as ApiResponse } from '../data';
 import * as data from '../data';
 import { requireAuth, audit } from '../middleware/auth';
 import { watchdog } from '../appState';
+import { validateBody, HelloSchema, ToolTopUsersSchema, DeleteSchema, SetLockoutSchema, EditToolSchema } from '../schemas';
 
 function getTime() { return Math.floor(Date.now() / 1000); }
-
-const MAC_REGEX = /^[0-9a-fA-F:.-]{1,30}$/;
-const CARD_REGEX = /^[0-9a-fA-F]{1,20}$/;
 
 export function createToolsRouter(sendUpdate: () => void): Router {
   const router = Router();
 
   // Called by firmware devices — no session auth
-  router.post('/hello', (req, res) => {
-    const mac = req.body.mac;
-    if (!mac || !MAC_REGEX.test(mac)) {
-      res.status(400).json(ApiResponse.mkErr("Malformed request"));
-      return;
-    }
+  router.post('/hello', validateBody(HelloSchema), (req, res) => {
+    const { mac, version, logs } = req.body;
     console.log('Hello from tool ' + mac);
 
     const users: User[] = data.getUsers();
@@ -32,11 +26,11 @@ export function createToolsRouter(sendUpdate: () => void): Router {
     const lastSeen = watchdog.find(x => x.toolMac === mac);
     if (lastSeen) {
       lastSeen.timestamp = getTime();
-      if (req.body.version) {
-        lastSeen.version = req.body.version;
+      if (version) {
+        lastSeen.version = version;
       }
     } else {
-      watchdog.push({ toolMac: mac, timestamp: getTime(), updated: false, offline: false, version: req.body.version });
+      watchdog.push({ toolMac: mac, timestamp: getTime(), updated: false, offline: false, version });
     }
 
     const existingTool = tools.find(x => x.mac === mac);
@@ -62,14 +56,6 @@ export function createToolsRouter(sendUpdate: () => void): Router {
         });
       }
 
-      interface LogEntry {
-        card: string;
-        op: string;
-        time: number;
-        spindleTime: number;
-      }
-
-      const logs: LogEntry[] = req.body.logs;
       for (const log of logs) {
         const user = users.find(x => x.card === log.card);
 
@@ -116,9 +102,9 @@ export function createToolsRouter(sendUpdate: () => void): Router {
     res.json(ApiResponse.mkData(log));
   });
 
-  router.post('/tools/topusers', requireAuth, (req, res) => {
+  router.post('/tools/topusers', requireAuth, validateBody(ToolTopUsersSchema), (req, res) => {
+    const { toolId } = req.body;
     const tools: Tool[] = data.getTools();
-    const toolId = req.body.toolId;
 
     if (!tools.find(x => x.id === toolId)) {
       res.status(400).json(ApiResponse.mkErr("Tool not found"));
@@ -142,10 +128,10 @@ export function createToolsRouter(sendUpdate: () => void): Router {
     res.json(ApiResponse.mkData(tools));
   });
 
-  router.post('/tool/delete', requireAuth, (req, res) => {
+  router.post('/tool/delete', requireAuth, validateBody(DeleteSchema), (req, res) => {
     console.log('api/tool/delete called.');
     const tools: Tool[] = data.getTools();
-    const toolId = req.body.id;
+    const { id: toolId } = req.body;
     const tool = tools.find(x => x.id === toolId);
 
     if (!tool) {
@@ -163,20 +149,14 @@ export function createToolsRouter(sendUpdate: () => void): Router {
     sendUpdate();
   });
 
-  router.post('/tool/setlockout', requireAuth, (req, res) => {
+  router.post('/tool/setlockout', requireAuth, validateBody(SetLockoutSchema), (req, res) => {
     console.log('api/tool/setlockout called.');
     const tools: Tool[] = data.getTools();
-    const toolId = req.body.id;
-    const isLocked = req.body.islocked;
+    const { id: toolId, islocked: isLocked } = req.body;
     const tool = tools.find(x => x.id === toolId);
 
     if (!tool) {
       res.status(400).json(ApiResponse.mkErr("Tool not found"));
-      return;
-    }
-
-    if (!(isLocked === true || isLocked === false)) {
-      res.status(400).json(ApiResponse.mkErr("Malformed request"));
       return;
     }
 
@@ -190,27 +170,27 @@ export function createToolsRouter(sendUpdate: () => void): Router {
     sendUpdate();
   });
 
-  router.post('/tool/edit', requireAuth, (req, res) => {
+  router.post('/tool/edit', requireAuth, validateBody(EditToolSchema), (req, res) => {
     console.log('api/tool/edit called');
     const users: User[] = data.getUsers();
     const tools: Tool[] = data.getTools();
 
-    const toolId = req.body.toolId;
+    const { toolId, toolName, toolUsers } = req.body;
     const tool = tools.find(x => x.id === toolId);
     if (!tool) {
       res.status(400).json(ApiResponse.mkErr("Tool not found"));
       return;
     }
 
-    if (req.body.toolName) {
-      if (data.editTool(tool.id, req.body.toolName)) {
+    if (toolName) {
+      if (data.editTool(tool.id, toolName)) {
         audit(req, `Renamed ${tool.name}(${toolId})`);
       }
     }
 
-    if (req.body.toolUsers) {
+    if (toolUsers) {
       const newUsers: number[] = [];
-      req.body.toolUsers.forEach((toolUser: number) => {
+      toolUsers.forEach((toolUser: number) => {
         if (users.find(x => x.id === toolUser)) {
           newUsers.push(toolUser);
         } else {

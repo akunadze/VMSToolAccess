@@ -24,7 +24,8 @@
     "https": "^1.0.0",
     "random-id": "^1.0.4",
     "utf-8-validate": "^6.0.5",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -43,6 +44,6 @@
     "node-polyfill-webpack-plugin": "^4.1.0",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.1",
-    "typescript": "^4.3.2"
+    "typescript": "^5.9.3"
   }
 }
