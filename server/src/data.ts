@@ -23,15 +23,17 @@ export class User {
   id: number;
   fullName: string;
   email: string;
+  phone: string;
   card: string;
   doorCard: string;
   group: boolean;
   members: number[];
 
-  constructor(id: number, fullname: string, email: string, card: string, doorCard: string, group: boolean, members: number[]) {
+  constructor(id: number, fullname: string, email: string, phone: string, card: string, doorCard: string, group: boolean, members: number[]) {
     this.id = id;
     this.fullName = fullname;
     this.email = email;
+    this.phone = phone;
     this.card = card;
     this.doorCard = doorCard;
     this.group = group;
@@ -305,7 +307,7 @@ export function getUsers(): User[] {
             .map(r => r.id!)
         : [];
 
-      return new User(row.id, row.fullName, row.email ?? '', row.card ?? '', row.doorCard ?? '', row.isGroup ?? false, members);
+      return new User(row.id, row.fullName, row.email ?? '', row.phone ?? '', row.card ?? '', row.doorCard ?? '', row.isGroup ?? false, members);
     });
   } catch(e) {
     console.log('Error in getUsers: ' + e);
@@ -561,6 +563,94 @@ export function registerToolCard(doorCard: string, toolCard: string): boolean {
   } catch(e) {
     console.log('Error in registerToolCard: ' + e);
     return false;
+  }
+}
+
+export function getUserByDoorCard(doorCard: string): User | null {
+  try {
+    const row = db.select()
+      .from(usersTable)
+      .where(eq(usersTable.doorCard, doorCard))
+      .all()[0];
+    if (!row) return null;
+    return new User(row.id, row.fullName, row.email ?? '', row.phone ?? '', row.card ?? '', row.doorCard ?? '', row.isGroup ?? false, []);
+  } catch(e) {
+    console.log('Error in getUserByDoorCard: ' + e);
+    return null;
+  }
+}
+
+export function getUserByToolCard(toolCard: string): User | null {
+  try {
+    const row = db.select()
+      .from(usersTable)
+      .where(eq(usersTable.card, toolCard))
+      .all()[0];
+    if (!row) return null;
+    return new User(row.id, row.fullName, row.email ?? '', row.phone ?? '', row.card ?? '', row.doorCard ?? '', row.isGroup ?? false, []);
+  } catch(e) {
+    console.log('Error in getUserByToolCard: ' + e);
+    return null;
+  }
+}
+
+export function setUserToolCard(userId: number, toolCard: string | null): boolean {
+  try {
+    db.update(usersTable).set({ card: toolCard }).where(eq(usersTable.id, userId)).run();
+    return true;
+  } catch(e) {
+    console.log('Error in setUserToolCard: ' + e);
+    return false;
+  }
+}
+
+export function createKioskAccount(
+  name: string, email: string, phone: string, passwordHash: string, toolCard: string, doorCard: string
+): { userId: number } | { error: string } {
+  try {
+    let newUserId: number | undefined;
+
+    db.transaction(tx => {
+      const existingDoor = tx.select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.doorCard, doorCard))
+        .all()[0];
+      if (existingDoor) throw new Error('Door card already registered');
+
+      const existingTool = tx.select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.card, toolCard))
+        .all()[0];
+      if (existingTool) throw new Error('Tool card already registered');
+
+      const result = tx.insert(usersTable).values({
+        fullName: name,
+        email: email || null,
+        phone: phone || null,
+        passwordHash: passwordHash || null,
+        card: toolCard,
+        doorCard,
+        isGroup: false,
+      }).run();
+      newUserId = Number(result.lastInsertRowid);
+
+      const group = tx.select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.fullName, 'Everyone'))
+        .all()[0];
+      if (group) {
+        tx.insert(userGroupMapTable).values({ groupId: group.id, userId: newUserId }).run();
+      }
+    });
+
+    return { userId: newUserId! };
+  } catch(e: any) {
+    const msg: string = e?.message ?? 'Internal error';
+    console.log('Error in createKioskAccount: ' + msg);
+    if (msg === 'Door card already registered' || msg === 'Tool card already registered') {
+      return { error: msg };
+    }
+    return { error: 'Internal error' };
   }
 }
 

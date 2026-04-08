@@ -37,3 +37,7 @@ server/src/**/*.js.map
 server/data/toolaccess.db
 .claude/settings.local.json
 firmware/dependencies.lock
+UserPortal/dist/**/*
+UserPortal/out/**/*
+UserPortal/flutter_ui/.dart_tool/**/*
+UserPortal/flutter_ui/build/**/*

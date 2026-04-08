@@ -15,6 +15,7 @@ import { createToolsRouter } from "./routes/tools";
 import { createUsersRouter } from "./routes/users";
 import { createEnrollRouter } from "./routes/enroll";
 import { createFirmwareRouter } from "./routes/firmware";
+import { createKioskRouter } from "./routes/kiosk";
 
 // Uncomment to see full request/response bodies in the log
 // import morganBody from 'morgan-body';
@@ -70,6 +71,7 @@ app.use('/api', createToolsRouter(sendUpdateNotification));
 app.use('/api', createUsersRouter(sendUpdateNotification));
 app.use('/api', createEnrollRouter());
 app.use('/api', createFirmwareRouter());
+app.use('/api', createKioskRouter());
 
 // SPA fallback
 app.get('*', (_req, res) => {
