@@ -1,12 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import bcrypt from 'bcrypt';
 import { Response as ApiResponse } from '../data';
 import * as data from '../data';
 import { KIOSK_SECRET } from '../config';
 import { validateBody } from '../schemas';
 
-const SALT_ROUNDS = 10;
 
 const DOOR_CARD_REGEX = /^[0-9a-fA-F:]{3,20}$/;
 const TOOL_CARD_REGEX = /^[0-9a-fA-F]{8}$/;
@@ -30,7 +28,6 @@ const CreateAccountSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email format').optional().nullable(),
   phone: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits').optional().nullable(),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 const ReplaceCardSchema = z.object({
@@ -41,6 +38,19 @@ const ReplaceCardSchema = z.object({
 
 const ReportFoundCardSchema = z.object({
   toolCard: z.string().regex(TOOL_CARD_REGEX, 'Invalid tool card format'),
+});
+
+const CheckoutGetUserToolsSchema = z.object({
+  doorCard: z.string().regex(DOOR_CARD_REGEX, 'Invalid door card format'),
+});
+
+const CheckoutLookupToolCardSchema = z.object({
+  toolCard: z.string().regex(TOOL_CARD_REGEX, 'Invalid tool card format'),
+});
+
+const CheckoutAddPermissionsSchema = z.object({
+  toolIds: z.array(z.number().int().positive()).min(1, 'At least one tool is required'),
+  userIds: z.array(z.number().int().positive()).min(1, 'At least one user is required'),
 });
 
 export function createKioskRouter(): Router {
@@ -61,9 +71,8 @@ export function createKioskRouter(): Router {
 
   // Create a new account with both door card and tool card assigned.
   router.post('/kiosk/create-account', validateBody(CreateAccountSchema), (req, res) => {
-    const { doorCard, toolCard, name, email, phone, password } = req.body;
-    const passwordHash = bcrypt.hashSync(password, SALT_ROUNDS);
-    const result = data.createKioskAccount(name, email ?? '', phone ?? '', passwordHash, toolCard, doorCard);
+    const { doorCard, toolCard, name, email, phone } = req.body;
+    const result = data.createKioskAccount(name, email ?? '', phone ?? '', toolCard, doorCard);
     if ('error' in result) {
       res.status(409).json(ApiResponse.mkErr(result.error));
       return;
@@ -100,6 +109,43 @@ export function createKioskRouter(): Router {
       console.log(`[Kiosk] Found card reported (unregistered): card=${toolCard}`);
       res.json(ApiResponse.mkData({ wasRegistered: false }));
     }
+  });
+
+  // Tool Checkout step 1: look up user by door card and return their authorized tools.
+  // Returns { found: true, userId, name, tools: [{id, name}] } or { found: false }.
+  router.post('/kiosk/checkout-get-user-tools', validateBody(CheckoutGetUserToolsSchema), (req, res) => {
+    const { doorCard } = req.body;
+    const user = data.getUserByDoorCard(doorCard);
+    if (!user) {
+      res.json(ApiResponse.mkData({ found: false }));
+      return;
+    }
+    const tools = data.getUserAuthorizedTools(user.id);
+    res.json(ApiResponse.mkData({ found: true, userId: user.id, name: user.fullName, tools }));
+  });
+
+  // Tool Checkout step 2: look up a user by their tool (RFID) card.
+  // Returns { found: true, userId, name } or { found: false }.
+  router.post('/kiosk/checkout-lookup-tool-card', validateBody(CheckoutLookupToolCardSchema), (req, res) => {
+    const { toolCard } = req.body;
+    const user = data.getUserByToolCard(toolCard);
+    if (!user) {
+      res.json(ApiResponse.mkData({ found: false }));
+      return;
+    }
+    res.json(ApiResponse.mkData({ found: true, userId: user.id, name: user.fullName }));
+  });
+
+  // Tool Checkout step 3: grant a set of users access to a set of tools.
+  router.post('/kiosk/checkout-add-permissions', validateBody(CheckoutAddPermissionsSchema), (req, res) => {
+    const { toolIds, userIds } = req.body;
+    const ok = data.addPermissionsBulk(toolIds, userIds);
+    if (!ok) {
+      res.status(500).json(ApiResponse.mkErr('Failed to update permissions'));
+      return;
+    }
+    console.log(`[Kiosk] Checkout permissions added: tools=${toolIds}, users=${userIds}`);
+    res.json(ApiResponse.mkOk());
   });
 
   return router;

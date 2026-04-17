@@ -1,0 +1,1 @@
+curl -X POST http://localhost:4000/kiosk-api/dev/simulate-door-scan -H "Content-Type: application/json" -d "{\"cardId\": \"AA:BB:CC:DD\"}"

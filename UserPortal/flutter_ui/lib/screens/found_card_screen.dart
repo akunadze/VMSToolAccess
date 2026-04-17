@@ -4,7 +4,7 @@ import '../api/kiosk_api.dart';
 import '../widgets/kiosk_scaffold.dart';
 import '../widgets/tool_card_scan_prompt.dart';
 
-enum _Step { scanTool, success, error }
+enum _Step { scanTool, toolScanError, success }
 
 class FoundCardScreen extends StatefulWidget {
   const FoundCardScreen({super.key});
@@ -20,6 +20,7 @@ class _FoundCardScreenState extends State<FoundCardScreen> {
   String? _ownerName;
   String? _errorMessage;
   bool _isLoading = false;
+  int _toolScanAttempt = 0;
 
   Future<void> _onToolCardScanned(String cardId) async {
     setState(() => _isLoading = true);
@@ -34,7 +35,7 @@ class _FoundCardScreenState extends State<FoundCardScreen> {
     } on KioskApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        _step = _Step.error;
+        _step = _Step.toolScanError;
         _errorMessage = e.message;
       });
     } finally {
@@ -50,8 +51,53 @@ class _FoundCardScreenState extends State<FoundCardScreen> {
     switch (_step) {
       case _Step.scanTool:
         return ToolCardScanPrompt(
+          key: ValueKey(_toolScanAttempt),
           message: 'Hold the found card flat on the RFID reader',
           onCardScanned: _onToolCardScanned,
+        );
+
+      case _Step.toolScanError:
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(48),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 100, color: Colors.red),
+                const SizedBox(height: 24),
+                Text(
+                  _errorMessage ?? 'An unexpected error occurred.',
+                  style: const TextStyle(fontSize: 22),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 48),
+                ElevatedButton(
+                  onPressed: () => setState(() {
+                    _toolScanAttempt++;
+                    _step = _Step.scanTool;
+                  }),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Try Again', style: TextStyle(fontSize: 22)),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton(
+                  onPressed: () => context.go('/home'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Back to Menu', style: TextStyle(fontSize: 22)),
+                ),
+              ],
+            ),
+          ),
         );
 
       case _Step.success:
@@ -86,36 +132,6 @@ class _FoundCardScreenState extends State<FoundCardScreen> {
                     ),
                   ),
                   child: const Text('Done', style: TextStyle(fontSize: 22)),
-                ),
-              ],
-            ),
-          ),
-        );
-
-      case _Step.error:
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(48),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 100, color: Colors.red),
-                const SizedBox(height: 24),
-                Text(
-                  _errorMessage ?? 'An unexpected error occurred.',
-                  style: const TextStyle(fontSize: 22),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 48),
-                ElevatedButton(
-                  onPressed: () => context.go('/home'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Back to Menu', style: TextStyle(fontSize: 22)),
                 ),
               ],
             ),

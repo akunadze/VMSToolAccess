@@ -12,7 +12,6 @@ export const users = sqliteTable('Users', {
   fullName: text('fullName').notNull(),
   email: text('email'),
   phone: text('phone'),
-  passwordHash: text('passwordHash'),
   card: text('card').unique(),
   doorCard: text('doorCard').unique(),
   isGroup: integer('isGroup', { mode: 'boolean' }).default(false),

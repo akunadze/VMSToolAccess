@@ -42,7 +42,7 @@ static void IRAM_ATTR dataISR(void* arg) {
 
 void HIDsetup() {
     gpio_config_t inputConfig = {
-        .pin_bit_mask = (1ULL << 25) | (1ULL << 26),
+        .pin_bit_mask = (1ULL << 14) | (1ULL << 27),
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -52,15 +52,15 @@ void HIDsetup() {
     gpio_config(&inputConfig);
 
     gpio_install_isr_service(0);
-    gpio_isr_handler_add(GPIO_NUM_25, dataISR, (void *)1);
-    gpio_isr_handler_add(GPIO_NUM_26, dataISR, (void *)0);
+    gpio_isr_handler_add(GPIO_NUM_14, dataISR, (void *)1);
+    gpio_isr_handler_add(GPIO_NUM_27, dataISR, (void *)0);
 
     HIDReset();
 }
 
 void HIDWaitForCard()
 {
-    while (!waitStart || (xTaskGetTickCount() - waitStart < pdMS_TO_TICKS(1000))) {
+    while (!waitStart || (xTaskGetTickCount() - waitStart < pdMS_TO_TICKS(500))) {
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }

@@ -41,3 +41,14 @@ UserPortal/dist/**/*
 UserPortal/out/**/*
 UserPortal/flutter_ui/.dart_tool/**/*
 UserPortal/flutter_ui/build/**/*
+
+# Python environment files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.egg-info/
+
+# FVM (Flutter Version Manager) files
+.fvm/
+.fvmrc

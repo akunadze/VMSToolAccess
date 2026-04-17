@@ -605,7 +605,7 @@ export function setUserToolCard(userId: number, toolCard: string | null): boolea
 }
 
 export function createKioskAccount(
-  name: string, email: string, phone: string, passwordHash: string, toolCard: string, doorCard: string
+  name: string, email: string, phone: string, toolCard: string, doorCard: string
 ): { userId: number } | { error: string } {
   try {
     let newUserId: number | undefined;
@@ -627,7 +627,6 @@ export function createKioskAccount(
         fullName: name,
         email: email || null,
         phone: phone || null,
-        passwordHash: passwordHash || null,
         card: toolCard,
         doorCard,
         isGroup: false,
@@ -651,6 +650,37 @@ export function createKioskAccount(
       return { error: msg };
     }
     return { error: 'Internal error' };
+  }
+}
+
+export function getUserAuthorizedTools(userId: number): { id: number; name: string }[] {
+  try {
+    return db.select({ id: toolsTable.id, name: toolsTable.name })
+      .from(toolsTable)
+      .innerJoin(permissionsTable, eq(permissionsTable.toolId, toolsTable.id))
+      .where(eq(permissionsTable.userId, userId))
+      .orderBy(toolsTable.name)
+      .all()
+      .map(r => ({ id: r.id, name: r.name ?? '' }));
+  } catch(e) {
+    console.log('Error in getUserAuthorizedTools: ' + e);
+    return [];
+  }
+}
+
+export function addPermissionsBulk(toolIds: number[], userIds: number[]): boolean {
+  try {
+    db.transaction(tx => {
+      for (const toolId of toolIds) {
+        for (const userId of userIds) {
+          tx.insert(permissionsTable).values({ toolId, userId }).onConflictDoNothing().run();
+        }
+      }
+    });
+    return true;
+  } catch(e) {
+    console.log('Error in addPermissionsBulk: ' + e);
+    return false;
   }
 }
 

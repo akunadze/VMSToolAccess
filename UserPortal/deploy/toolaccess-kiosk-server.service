@@ -1,0 +1,21 @@
+[Unit]
+Description=ToolAccess Kiosk Server (API proxy + card events)
+After=network.target
+
+[Service]
+Type=simple
+User=alexk
+WorkingDirectory=/opt/toolaccess-kiosk/UserPortal
+ExecStart=/opt/toolaccess-kiosk/venv/bin/python3 electron/server.py
+Restart=on-failure
+RestartSec=3
+
+Environment=PYTHONUNBUFFERED=1
+Environment=KIOSK_ENV=production
+Environment=KIOSK_PORT=4000
+
+# Must match the KIOSK_SECRET configured in the main server
+EnvironmentFile=/etc/toolaccess-kiosk/secrets.env
+
+[Install]
+WantedBy=multi-user.target

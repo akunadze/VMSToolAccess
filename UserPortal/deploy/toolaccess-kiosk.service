@@ -1,0 +1,20 @@
+[Unit]
+Description=ToolAccess Flutter Kiosk (flutterpi)
+After=toolaccess-kiosk-server.service
+Requires=toolaccess-kiosk-server.service
+
+[Service]
+Type=simple
+User=alexk
+# flutter-pi requires access to /dev/dri and /dev/input
+SupplementaryGroups=video input render
+
+ExecStart=/usr/local/bin/flutter-pi -r 90 /opt/toolaccess-kiosk/UserPortal/flutter_assets
+Restart=on-failure
+RestartSec=3
+
+# Required for DRM/KMS access
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+
+[Install]
+WantedBy=multi-user.target

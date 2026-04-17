@@ -1,0 +1,1 @@
+curl -X POST http://localhost:4000/kiosk-api/dev/simulate-tool-scan -H "Content-Type: application/json" -d "{\"cardId\": \"AABBCC11\"}"

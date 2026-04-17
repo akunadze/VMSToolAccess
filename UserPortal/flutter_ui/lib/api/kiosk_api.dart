@@ -44,7 +44,6 @@ class KioskApi {
     required String doorCard,
     required String toolCard,
     required String name,
-    required String password,
     String? email,
     String? phone,
   }) =>
@@ -52,7 +51,6 @@ class KioskApi {
         'doorCard': doorCard,
         'toolCard': toolCard,
         'name': name,
-        'password': password,
         if (email != null && email.isNotEmpty) 'email': email,
         if (phone != null && phone.isNotEmpty) 'phone': phone,
       });
@@ -76,4 +74,28 @@ class KioskApi {
   /// Returns `{ 'wasRegistered': bool, 'userName': String? }`.
   static Future<Map<String, dynamic>> reportFoundCard(String toolCard) =>
       _post('/report-found-card', {'toolCard': toolCard});
+
+  /// Tool Checkout step 1: look up a user by door card and return their authorized tools.
+  ///
+  /// Returns `{ 'found': true, 'userId': int, 'name': String, 'tools': [{'id': int, 'name': String}] }`
+  /// or `{ 'found': false }`.
+  static Future<Map<String, dynamic>> checkoutGetUserTools(String doorCard) =>
+      _post('/checkout-get-user-tools', {'doorCard': doorCard});
+
+  /// Tool Checkout step 2: look up a user by their tool (RFID) card.
+  ///
+  /// Returns `{ 'found': true, 'userId': int, 'name': String }` or `{ 'found': false }`.
+  static Future<Map<String, dynamic>> checkoutLookupToolCard(String toolCard) =>
+      _post('/checkout-lookup-tool-card', {'toolCard': toolCard});
+
+  /// Tool Checkout step 3: grant a list of users access to a list of tools.
+  static Future<void> checkoutAddPermissions({
+    required List<int> toolIds,
+    required List<int> userIds,
+  }) async {
+    await _post('/checkout-add-permissions', {
+      'toolIds': toolIds,
+      'userIds': userIds,
+    });
+  }
 }
