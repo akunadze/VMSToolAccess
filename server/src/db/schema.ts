@@ -32,6 +32,8 @@ export const userGroupMap = sqliteTable('UserGroupMap', {
 export const permissions = sqliteTable('Permissions', {
   toolId: integer('toolId').references(() => tools.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   userId: integer('userId').references(() => users.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  // 1 = regular tool access, 2 = checkout, 3 = maintenance
+  type: integer('type').default(1).notNull(),
 }, t => [unique().on(t.toolId, t.userId)]);
 
 export const accessLog = sqliteTable('AccessLog', {

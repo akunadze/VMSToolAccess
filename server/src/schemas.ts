@@ -76,6 +76,10 @@ export const EditToolSchema = z.object({
   toolUsers: z.array(z.number().int()).optional(),
 });
 
+export const SetCheckoutUsersSchema = z.object({
+  userIds: z.array(z.number().int()),
+});
+
 // Portal Users
 export const AddPortalUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),

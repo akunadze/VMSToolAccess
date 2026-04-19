@@ -79,8 +79,15 @@ class KioskApi {
   ///
   /// Returns `{ 'found': true, 'userId': int, 'name': String, 'tools': [{'id': int, 'name': String}] }`
   /// or `{ 'found': false }`.
+  static Future<Map<String, dynamic>> getUserTools(String doorCard) =>
+      _post('/get-user-tools', {'doorCard': doorCard, 'accessType': 1});
+
+  /// Tool Checkout step 1: look up a user by door card and return their authorized tools.
+  ///
+  /// Returns `{ 'found': true, 'userId': int, 'name': String, 'tools': [{'id': int, 'name': String}] }`
+  /// or `{ 'found': false }`.
   static Future<Map<String, dynamic>> checkoutGetUserTools(String doorCard) =>
-      _post('/checkout-get-user-tools', {'doorCard': doorCard});
+      _post('/get-user-tools', {'doorCard': doorCard, 'accessType': 2});
 
   /// Tool Checkout step 2: look up a user by their tool (RFID) card.
   ///

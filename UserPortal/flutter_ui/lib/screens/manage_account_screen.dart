@@ -11,8 +11,9 @@ class ManageAccountScreen extends StatefulWidget {
   final int? userId;
   final String? userName;
   final List<Map<String, dynamic>>? tools;
+  final List<Map<String, dynamic>>? checkoutTools;
 
-  const ManageAccountScreen({super.key, this.userId, this.userName, this.tools});
+  const ManageAccountScreen({super.key, this.userId, this.userName, this.tools, this.checkoutTools});
 
   @override
   State<ManageAccountScreen> createState() => _ManageAccountScreenState();
@@ -24,6 +25,7 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
   int? _userId;
   String? _userName;
   List<Map<String, dynamic>> _tools = [];
+  List<Map<String, dynamic>> _checkoutTools = [];
   String? _errorMessage;
 
   @override
@@ -33,6 +35,7 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
       _userId = widget.userId;
       _userName = widget.userName;
       _tools = widget.tools ?? [];
+      _checkoutTools = widget.checkoutTools ?? [];
       _step = _Step.menu;
     } else {
       _step = _Step.scanDoor;
@@ -42,7 +45,8 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
   Future<void> _onDoorCardScanned(String cardId) async {
     setState(() => _isLoading = true);
     try {
-      final result = await KioskApi.checkoutGetUserTools(cardId);
+      final result = await KioskApi.getUserTools(cardId);
+      final resultCheckout = await KioskApi.checkoutGetUserTools(cardId);
       if (!mounted) return;
       if (result['found'] != true) {
         setState(() {
@@ -56,6 +60,9 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
         _userId = result['userId'] as int;
         _userName = result['name'] as String;
         _tools = (result['tools'] as List<dynamic>).cast<Map<String, dynamic>>();
+        if (resultCheckout['found'] == true) {
+          _checkoutTools = (resultCheckout['tools'] as List<dynamic>).cast<Map<String, dynamic>>();
+        }
         _step = _Step.menu;
       });
     } on KioskApiException catch (e) {
@@ -124,7 +131,7 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
                     icon: Icons.handshake,
                     onPressed: () => context.push(
                       '/tool-checkout',
-                      extra: {'userId': _userId, 'name': _userName, 'tools': _tools},
+                      extra: {'userId': _userId, 'name': _userName, 'tools': _checkoutTools},
                     ),
                   ),
                 ],

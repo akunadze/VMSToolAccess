@@ -90,6 +90,7 @@
         {{ tool.users.length }}
       </span>
       <button class="btn btn-secondary" @click="router.push('/tools/' + tool.id + '/users')">Edit</button>
+      <button class="btn btn-secondary" @click="router.push('/tools/' + tool.id + '/checkout-masters')">Checkout Masters</button>
     </div>
     <div class="input-group m-2 p-0 d-flex">
       <span class="bg-light border rounded-start p-1 w-25">Last log entry</span>

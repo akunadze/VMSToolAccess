@@ -164,7 +164,7 @@ export function getTools(): Tool[] {
 
       tool.users = db.select({ userId: permissionsTable.userId })
         .from(permissionsTable)
-        .where(eq(permissionsTable.toolId, row.id))
+        .where(and(eq(permissionsTable.toolId, row.id), eq(permissionsTable.type, 1)))
         .all()
         .map(r => r.userId ?? 0);
 
@@ -372,7 +372,7 @@ export function setToolUsers(toolId: number, userIds: number[]): boolean {
     db.transaction(tx => {
       tx.delete(permissionsTable).where(eq(permissionsTable.toolId, toolId)).run();
       for (const userId of userIds) {
-        tx.insert(permissionsTable).values({ toolId, userId }).run();
+        tx.insert(permissionsTable).values({ toolId, userId, type: 1 }).run();
       }
     });
     return true;
@@ -658,7 +658,7 @@ export function getUserAuthorizedTools(userId: number): { id: number; name: stri
     return db.select({ id: toolsTable.id, name: toolsTable.name })
       .from(toolsTable)
       .innerJoin(permissionsTable, eq(permissionsTable.toolId, toolsTable.id))
-      .where(eq(permissionsTable.userId, userId))
+      .where(and(eq(permissionsTable.userId, userId), eq(permissionsTable.type, 1)))
       .orderBy(toolsTable.name)
       .all()
       .map(r => ({ id: r.id, name: r.name ?? '' }));
@@ -668,12 +668,61 @@ export function getUserAuthorizedTools(userId: number): { id: number; name: stri
   }
 }
 
+export function getUserCheckoutTools(userId: number): { id: number; name: string }[] {
+  try {
+    return db.all<{ id: number; name: string }>(sql`
+      SELECT t.id, t.name
+      FROM Tools t
+      INNER JOIN Permissions p ON p.toolId = t.id AND p.userId = ${userId} AND p.type = 2
+      UNION
+      SELECT t.id, t.name
+      FROM Tools t
+      INNER JOIN Permissions p ON p.toolId = t.id AND p.userId = ${userId} AND p.type = 1
+      WHERE NOT EXISTS (
+        SELECT 1 FROM Permissions p2 WHERE p2.toolId = t.id AND p2.type = 2
+      )
+      ORDER BY name
+    `);
+  } catch(e) {
+    console.log('Error in getUserCheckoutTools: ' + e);
+    return [];
+  }
+}
+
+export function getToolCheckoutUsers(toolId: number): number[] {
+  try {
+    return db.select({ userId: permissionsTable.userId })
+      .from(permissionsTable)
+      .where(and(eq(permissionsTable.toolId, toolId), eq(permissionsTable.type, 2)))
+      .all()
+      .map(r => r.userId ?? 0);
+  } catch(e) {
+    console.log('Error in getToolCheckoutUsers: ' + e);
+    return [];
+  }
+}
+
+export function setToolCheckoutUsers(toolId: number, userIds: number[]): boolean {
+  try {
+    db.transaction(tx => {
+      tx.delete(permissionsTable).where(and(eq(permissionsTable.toolId, toolId), eq(permissionsTable.type, 2))).run();
+      for (const userId of userIds) {
+        tx.insert(permissionsTable).values({ toolId, userId, type: 2 }).run();
+      }
+    });
+    return true;
+  } catch(e) {
+    console.log('Error in setToolCheckoutUsers: ' + e);
+    return false;
+  }
+}
+
 export function addPermissionsBulk(toolIds: number[], userIds: number[]): boolean {
   try {
     db.transaction(tx => {
       for (const toolId of toolIds) {
         for (const userId of userIds) {
-          tx.insert(permissionsTable).values({ toolId, userId }).onConflictDoNothing().run();
+          tx.insert(permissionsTable).values({ toolId, userId, type: 1 }).onConflictDoNothing().run();
         }
       }
     });

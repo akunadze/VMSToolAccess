@@ -6,6 +6,7 @@
  * See https://obviate.io/?p=7470 for more details & instructions
 */
  
+#include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
@@ -70,6 +71,8 @@ bool HIDdecodeCard()
     bool valid = false;
     
     facilityCode = cardCode = 0;
+
+    printf("Decoding card... %d bits\n", bitCount);
 
     // if we have bits and we the weigand counter went out
     if (bitCount > 0) {

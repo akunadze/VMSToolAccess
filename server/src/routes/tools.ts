@@ -3,7 +3,7 @@ import { Tool, User, Response as ApiResponse } from '../data';
 import * as data from '../data';
 import { requireAuth, audit } from '../middleware/auth';
 import { watchdog } from '../appState';
-import { validateBody, HelloSchema, ToolTopUsersSchema, DeleteSchema, SetLockoutSchema, EditToolSchema } from '../schemas';
+import { validateBody, HelloSchema, ToolTopUsersSchema, DeleteSchema, SetLockoutSchema, EditToolSchema, SetCheckoutUsersSchema } from '../schemas';
 
 function getTime() { return Math.floor(Date.now() / 1000); }
 
@@ -79,6 +79,40 @@ export function createToolsRouter(sendUpdate: () => void): Router {
     }
 
     res.json(response);
+  });
+
+  router.get('/tools/:id/checkout-users', requireAuth, (req, res) => {
+    const toolId = parseInt(req.params.id, 10);
+    if (isNaN(toolId)) {
+      res.status(400).json(ApiResponse.mkErr("Invalid tool ID"));
+      return;
+    }
+    const tools: Tool[] = data.getTools();
+    if (!tools.find(x => x.id === toolId)) {
+      res.status(404).json(ApiResponse.mkErr("Tool not found"));
+      return;
+    }
+    const users = data.getToolCheckoutUsers(toolId);
+    res.json(ApiResponse.mkData(users));
+  });
+
+  router.post('/tools/:id/set-checkout-users', requireAuth, validateBody(SetCheckoutUsersSchema), (req, res) => {
+    const toolId = parseInt(req.params.id, 10);
+    if (isNaN(toolId)) {
+      res.status(400).json(ApiResponse.mkErr("Invalid tool ID"));
+      return;
+    }
+    const tools: Tool[] = data.getTools();
+    if (!tools.find(x => x.id === toolId)) {
+      res.status(404).json(ApiResponse.mkErr("Tool not found"));
+      return;
+    }
+    const { userIds } = req.body;
+    if (data.setToolCheckoutUsers(toolId, userIds)) {
+      res.json(ApiResponse.mkOk());
+    } else {
+      res.json(ApiResponse.mkErr("Internal error"));
+    }
   });
 
   router.get('/tools/utilstats', requireAuth, (req, res) => {

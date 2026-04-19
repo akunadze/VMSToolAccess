@@ -43,7 +43,33 @@ export function useToolMutations() {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tools'] }),
     });
 
-    return { setToolLockout, editToolName, editToolUsers };
+    const setCheckoutUsers = useMutation({
+        mutationFn: async ({ toolId, userIds }: { toolId: number; userIds: number[] }) => {
+            const resp = await fetch(`/api/tools/${toolId}/set-checkout-users`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userIds })
+            });
+            const json = await resp.json();
+            if (resp.status !== 200 || json.error) throw new Error(json.error ?? 'Failed to set checkout users');
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['checkoutUsers'] }),
+    });
+
+    return { setToolLockout, editToolName, editToolUsers, setCheckoutUsers };
+}
+
+export function useToolCheckoutUsers(toolId: number) {
+    return useQuery({
+        queryKey: ['checkoutUsers', toolId],
+        queryFn: async () => {
+            const resp = await fetch(`/api/tools/${toolId}/checkout-users`);
+            const json = await resp.json();
+            if (!resp.ok || json.error) throw new Error(json.error ?? 'Failed to fetch checkout users');
+            return json.data as number[];
+        },
+        staleTime: Infinity,
+    });
 }
 
 export function useToolTopUsers(toolId: number) {

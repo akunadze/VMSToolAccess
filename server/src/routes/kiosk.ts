@@ -40,8 +40,9 @@ const ReportFoundCardSchema = z.object({
   toolCard: z.string().regex(TOOL_CARD_REGEX, 'Invalid tool card format'),
 });
 
-const CheckoutGetUserToolsSchema = z.object({
+const GetUserToolsSchema = z.object({
   doorCard: z.string().regex(DOOR_CARD_REGEX, 'Invalid door card format'),
+  accessType: z.number({error: 'accessType is required'}).int().positive(),
 });
 
 const CheckoutLookupToolCardSchema = z.object({
@@ -111,16 +112,26 @@ export function createKioskRouter(): Router {
     }
   });
 
-  // Tool Checkout step 1: look up user by door card and return their authorized tools.
+  // Look up user by door card and return their authorized tools. 
+  // type = 1 for regular access, 2 for checkout permissions
   // Returns { found: true, userId, name, tools: [{id, name}] } or { found: false }.
-  router.post('/kiosk/checkout-get-user-tools', validateBody(CheckoutGetUserToolsSchema), (req, res) => {
-    const { doorCard } = req.body;
+  router.post('/kiosk/get-user-tools', validateBody(GetUserToolsSchema), (req, res) => {
+    const { doorCard, accessType } = req.body;
     const user = data.getUserByDoorCard(doorCard);
     if (!user) {
       res.json(ApiResponse.mkData({ found: false }));
       return;
     }
-    const tools = data.getUserAuthorizedTools(user.id);
+    let tools;
+    if (accessType === 1) {
+      tools = data.getUserAuthorizedTools(user.id);
+    } else if (accessType === 2) {
+      tools = data.getUserCheckoutTools(user.id);
+    } else {
+      res.status(400).json(ApiResponse.mkErr('Invalid access type'));
+      return;
+    }
+
     res.json(ApiResponse.mkData({ found: true, userId: user.id, name: user.fullName, tools }));
   });
 

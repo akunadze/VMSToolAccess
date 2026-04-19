@@ -64,6 +64,14 @@ const router = createRouter({
                 return {label: 'Users', to: '/tools/' + route.params.id + '/users'}
               }}
             },
+            {
+              path: 'checkout-masters',
+              name: 'tool checkout masters',
+              component: () => import('../components/ToolCheckoutUsersPage.vue'),
+              meta: {breadcrumb: (route: RouteLocationNormalized) => {
+                return {label: 'Checkout Masters', to: '/tools/' + route.params.id + '/checkout-masters'}
+              }}
+            },
           ]
         },
       ]
