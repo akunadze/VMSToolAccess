@@ -1,5 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/widget_previews.dart';
 import 'keyboard_controller.dart';
+
+@Preview(name: 'KioskTextField')
+Widget previewKioskTextField() => KeyboardScope(
+      controller: KeyboardController(),
+      child: KioskTextField(
+        label: 'Email address',
+        controller: TextEditingController(),
+        hint: 'you@example.com',
+        isRequired: true,
+      ),
+    );
 
 /// Large-font text input that drives the on-screen keyboard instead of the
 /// system keyboard. Tapping the field registers it with the nearest

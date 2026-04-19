@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/widget_previews.dart';
 import 'package:go_router/go_router.dart';
 import '../api/card_events.dart';
 import 'keyboard_controller.dart';
@@ -7,6 +8,12 @@ import 'on_screen_keyboard.dart';
 
 const _kInactivityTimeout = Duration(seconds: 20);
 const _kWarningDuration = Duration(seconds: 10);
+
+@Preview(name: 'KioskScaffold')
+Widget previewKioskScaffold() => KioskScaffold(
+      title: 'Sample Screen',
+      child: const Center(child: Text('Screen content goes here')),
+    );
 
 /// Common scaffold used by all kiosk screens.
 ///

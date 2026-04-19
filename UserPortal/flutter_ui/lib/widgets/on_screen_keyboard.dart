@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/widget_previews.dart';
 import 'keyboard_controller.dart';
 
 enum _ShiftState { off, once, locked }
@@ -72,6 +73,16 @@ const _numbersRows = [
 // ---------------------------------------------------------------------------
 // OnScreenKeyboard widget
 // ---------------------------------------------------------------------------
+
+@Preview(name: 'OnScreenKeyboard – letters')
+Widget previewOnScreenKeyboardLetters() =>
+    OnScreenKeyboard(controller: KeyboardController());
+
+@Preview(name: 'OnScreenKeyboard – numbers')
+Widget previewOnScreenKeyboardNumbers() {
+  final ctrl = KeyboardController();
+  return OnScreenKeyboard(controller: ctrl);
+}
 
 class OnScreenKeyboard extends StatefulWidget {
   final KeyboardController controller;

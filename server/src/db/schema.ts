@@ -1,4 +1,5 @@
 import { sqliteTable, integer, text, unique } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
 export const tools = sqliteTable('Tools', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -50,5 +51,5 @@ export const settings = sqliteTable('Settings', {
 export const auditLog = sqliteTable('AuditLog', {
   userId: integer('userId').references(() => portalUsers.id),
   action: text('action'),
-  timestamp: integer('timestamp'),
+  timestamp: integer('timestamp').notNull().default(sql`(current_timestamp)`),
 });

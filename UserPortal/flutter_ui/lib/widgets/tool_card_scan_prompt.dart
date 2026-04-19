@@ -1,22 +1,21 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/widget_previews.dart';
 import '../api/card_events.dart';
+
+@Preview(name: 'ToolCardScanPrompt')
+Widget previewToolCardScanPrompt() => ToolCardScanPrompt(onCardScanned: (_) {});
 
 /// Displays a "Please scan your tool card" prompt and listens for a tool card
 /// scan event from the MFRC522 reader.
-///
-/// Navigates back to /home automatically after [timeout] with no interaction.
 class ToolCardScanPrompt extends StatefulWidget {
   final void Function(String cardId) onCardScanned;
   final String message;
-  final Duration timeout;
 
   const ToolCardScanPrompt({
     super.key,
     required this.onCardScanned,
     this.message = 'Hold the card near the RFID reader',
-    this.timeout = const Duration(seconds: 60),
   });
 
   @override
@@ -25,7 +24,6 @@ class ToolCardScanPrompt extends StatefulWidget {
 
 class _ToolCardScanPromptState extends State<ToolCardScanPrompt> {
   StreamSubscription<String>? _subscription;
-  Timer? _timeoutTimer;
 
   @override
   void initState() {
@@ -33,15 +31,11 @@ class _ToolCardScanPromptState extends State<ToolCardScanPrompt> {
     _subscription = CardEventService.toolCardScans.listen((cardId) {
       if (mounted) widget.onCardScanned(cardId);
     });
-    _timeoutTimer = Timer(widget.timeout, () {
-      if (mounted) context.go('/home');
-    });
   }
 
   @override
   void dispose() {
     _subscription?.cancel();
-    _timeoutTimer?.cancel();
     super.dispose();
   }
 
