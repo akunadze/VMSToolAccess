@@ -9,7 +9,7 @@ User=alexk
 # flutter-pi requires access to /dev/dri and /dev/input
 SupplementaryGroups=video input render
 
-ExecStart=/usr/local/bin/flutter-pi -r 90 /opt/toolaccess-kiosk/UserPortal/flutter_assets
+ExecStart=/usr/local/bin/flutter-pi -r 270 /opt/toolaccess-kiosk/UserPortal/flutter_assets
 Restart=on-failure
 RestartSec=3
 

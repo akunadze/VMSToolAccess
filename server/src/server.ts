@@ -45,6 +45,7 @@ app.use(session({
   secret: config.SESSION_SECRET,
   saveUninitialized: false,
   resave: false,
+  rolling: true,
   cookie: {
     httpOnly: true,
     secure: true,
