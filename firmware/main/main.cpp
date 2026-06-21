@@ -24,6 +24,9 @@ const gpio_num_t RELAY_PIN = GPIO_NUM_16;
 const gpio_num_t GATE_SERVO_PIN = GPIO_NUM_25;
 const gpio_num_t LED_PIN = GPIO_NUM_32;
 
+const int SERVO_ANGLE_JITTER = 5;
+const int SERVO_ANGLE_JITTER_DURATION_MS = 1000;
+
 MFRC522 rfid;
 
 char currentCard[21];
@@ -247,6 +250,8 @@ void app_main(void)
     }
 
     servo_init();
+    iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateCloseAngle() + SERVO_ANGLE_JITTER);
+    vTaskDelay(pdMS_TO_TICKS(SERVO_ANGLE_JITTER_DURATION_MS));
     iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateCloseAngle());
 
     WebApi api(config, wifi);
@@ -288,6 +293,8 @@ void app_main(void)
             if (config.isUserPresent(currentCard)) {
                 led_strip_set_pixel(led_strip, 0, 255, 0, 0);
                 led_strip_refresh(led_strip);
+                iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateOpenAngle() - SERVO_ANGLE_JITTER);
+                vTaskDelay(pdMS_TO_TICKS(SERVO_ANGLE_JITTER_DURATION_MS));
                 iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateOpenAngle());
 
                 ESP_LOGW(TAG, "User authorized");
@@ -299,6 +306,8 @@ void app_main(void)
             } else {
                 led_strip_set_pixel(led_strip, 0, 0, 255, 0);
                 led_strip_refresh(led_strip);
+                iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateCloseAngle() + SERVO_ANGLE_JITTER);
+                vTaskDelay(pdMS_TO_TICKS(SERVO_ANGLE_JITTER_DURATION_MS));
                 iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateCloseAngle());
 
                 ESP_LOGW(TAG, "User NOT authorized");
@@ -319,6 +328,8 @@ void app_main(void)
             if (bAuthorized) {
                 spindleTime.setRecord(false);
                 setAccess(false);
+                iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateCloseAngle() + SERVO_ANGLE_JITTER);
+                vTaskDelay(pdMS_TO_TICKS(SERVO_ANGLE_JITTER_DURATION_MS));
                 iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, config.getGateCloseAngle());
                 api.addLog(currentCard, LogEntry::LogOut, time(NULL), spindleTime.getTime());
                 saveActiveCardAndSpindleTime("", 0);
