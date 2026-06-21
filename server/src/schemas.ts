@@ -57,7 +57,7 @@ const LogEntrySchema = z.object({
 
 export const HelloSchema = z.object({
   mac: z.string().regex(MAC_REGEX, 'Invalid MAC format'),
-  version: z.string().optional(),
+  version: z.number(),
   logs: z.array(LogEntrySchema).default([]),
 });
 
