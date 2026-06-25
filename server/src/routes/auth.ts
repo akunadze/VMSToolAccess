@@ -90,7 +90,7 @@ export function createAuthRouter(sendUpdate: () => void): Router {
     console.log('api/portaluser/add called.');
     const { name: userName, password: userPassword } = req.body;
 
-    if (data.addPortalUser(userName, userPassword)) {
+    if (data.addPortalUser(userName, bcrypt.hashSync(userPassword, saltRounds))) {
       audit(req, `Added portal user ${userName}`);
       res.json(ApiResponse.mkOk());
     } else {

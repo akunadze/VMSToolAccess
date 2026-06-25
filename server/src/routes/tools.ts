@@ -82,7 +82,7 @@ export function createToolsRouter(sendUpdate: () => void): Router {
   });
 
   router.get('/tools/:id/checkout-users', requireAuth, (req, res) => {
-    const toolId = parseInt(req.params.id, 10);
+    const toolId = parseInt(req.params.id as string, 10);
     if (isNaN(toolId)) {
       res.status(400).json(ApiResponse.mkErr("Invalid tool ID"));
       return;
@@ -97,7 +97,7 @@ export function createToolsRouter(sendUpdate: () => void): Router {
   });
 
   router.post('/tools/:id/set-checkout-users', requireAuth, validateBody(SetCheckoutUsersSchema), (req, res) => {
-    const toolId = parseInt(req.params.id, 10);
+    const toolId = parseInt(req.params.id as string, 10);
     if (isNaN(toolId)) {
       res.status(400).json(ApiResponse.mkErr("Invalid tool ID"));
       return;
@@ -122,7 +122,7 @@ export function createToolsRouter(sendUpdate: () => void): Router {
   });
 
   router.get('/tools/:id/log', requireAuth, (req, res) => {
-    const toolId = parseInt(req.params.id, 10);
+    const toolId = parseInt(req.params.id as string, 10);
     if (isNaN(toolId)) {
       res.status(400).json(ApiResponse.mkErr("Invalid tool ID"));
       return;

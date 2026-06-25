@@ -8,6 +8,13 @@
       "when": 1775363014861,
       "tag": "0000_big_boom_boom",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1782348728528,
+      "tag": "0001_strange_logan",
+      "breakpoints": true
     }
   ]
 }

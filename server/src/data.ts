@@ -1,6 +1,7 @@
 import BetterSqlite3 from 'better-sqlite3';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq, desc, and, isNull, sql } from 'drizzle-orm';
+import bcrypt from 'bcrypt';
 import * as schema from './db/schema';
 import {
   tools as toolsTable,
@@ -137,6 +138,12 @@ export function initData() {
     `);
 
     db = drizzle(sqlite, { schema });
+
+    const portalUsersCount = db.select().from(portalUsersTable).all().length;
+    if (portalUsersCount === 0) {
+      console.log('No portal users exist, creating default user "admin" with password "admin"');
+      db.insert(portalUsersTable).values({ name: 'admin', password: bcrypt.hashSync('admin', 10) }).run();
+    }
   } catch(e) {
     console.log('Error in initData: ' + e);
   }
